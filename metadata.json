@@ -1,0 +1,6 @@
+{
+  "name": "Pakhtoon Community Oman",
+  "description": "An interactive, beautiful community platform for the Pakhtoon community in Oman, featuring membership management, gold cabinet cards, incident reporting, interactive elections, press releases, donation trackers, labor laws, and a comprehensive admin control panel.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
