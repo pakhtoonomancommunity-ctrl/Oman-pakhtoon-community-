@@ -101,6 +101,15 @@ export default function AdminPanel({
     }
   };
 
+  // Let's keep the user updated when authorization state changes
+  React.useEffect(() => {
+    if (googleToken) {
+      setGdriveStatus('✅ Google Drive connected successfully! Directory is ready to sync.');
+    } else {
+      setGdriveStatus('');
+    }
+  }, [googleToken]);
+
   // Google Sheets OAuth, Creation & Sync Integration
   const handleConnectOAuth = () => {
     if (!customClientId.trim()) {
@@ -108,9 +117,28 @@ export default function AdminPanel({
       return;
     }
     localStorage.setItem('google_custom_client_id', customClientId.trim());
-    setGdriveStatus('🔄 Connecting to Google Drive OAuth portal...');
+    setGdriveStatus('🔄 Opening secure Google connection portal...');
+    
     const authUrl = getGoogleAuthUrl(customClientId.trim());
-    window.location.href = authUrl;
+    
+    // Open Google OAuth flow in a popup instead of redirecting the iframe, bypassing the sandbox iframe restrictions!
+    const width = 600;
+    const height = 650;
+    const left = window.screen.width / 2 - width / 2;
+    const top = window.screen.height / 2 - height / 2;
+    
+    const popup = window.open(
+      authUrl,
+      'google_oauth_popup',
+      `width=${width},height=${height},top=${top},left=${left},status=no,resizable=yes,scrollbars=yes`
+    );
+
+    if (!popup) {
+      setGdriveStatus('⚠️ Popup blocked! Please allow popups for this page to sign in with Google.');
+      alert('⚠️ Dynamic Popup Blocker Active! Please allow popups for this browser tab so we can securely display the Google authorization consent dialog.');
+    } else {
+      setGdriveStatus('🔄 Secure login popup window opened. Awaiting callback confirmation...');
+    }
   };
 
   const handleDisconnectGoogle = () => {

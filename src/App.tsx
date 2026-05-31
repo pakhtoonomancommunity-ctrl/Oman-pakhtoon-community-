@@ -39,6 +39,16 @@ export default function App() {
   useEffect(() => {
     const { token, state } = checkAuthFromUrl();
     if (token) {
+      // If this page is running inside an OAuth popup window, securely post back to parents and self-close!
+      if (window.opener) {
+        try {
+          window.opener.postMessage({ type: 'GOOGLE_OAUTH_SUCCESS', token, state }, '*');
+          window.close();
+          return;
+        } catch (e) {
+          console.error('[OAuth Popup] Error sending token back to container:', e);
+        }
+      }
       setGoogleToken(token);
       localStorage.setItem('google_oauth_token', token);
       
@@ -47,6 +57,27 @@ export default function App() {
         setActivePage('admin');
       }
     }
+  }, []);
+
+  // Listen for popup messages to seamlessly grab tokens inside the iframe context
+  useEffect(() => {
+    const handleOAuthMessage = (event: MessageEvent) => {
+      // Accept messages from our secure container domain or localhost
+      if (event.data && event.data.type === 'GOOGLE_OAUTH_SUCCESS') {
+        const { token, state } = event.data;
+        if (token) {
+          setGoogleToken(token);
+          localStorage.setItem('google_oauth_token', token);
+          if (state && state.includes('activePage=cabinet')) {
+            setActivePage('admin');
+          }
+        }
+      }
+    };
+    window.addEventListener('message', handleOAuthMessage);
+    return () => {
+      window.removeEventListener('message', handleOAuthMessage);
+    };
   }, []);
 
   // User Voting Memory
