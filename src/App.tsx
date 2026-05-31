@@ -24,14 +24,71 @@ export default function App() {
   const [activePage, setActivePage] = useState<string>('home');
   
   // Real-time Persistent States
-  const [members, setMembers] = useState<Member[]>(INITIAL_MEMBERS);
-  const [cabinet, setCabinet] = useState<CabinetMember[]>(INITIAL_CABINET);
-  const [reports, setReports] = useState<IncidentReport[]>(INITIAL_REPORTS);
-  const [donations, setDonations] = useState<Donation[]>(INITIAL_DONATIONS);
-  const [lawArticles, setLawArticles] = useState<LawArticle[]>(INITIAL_LAW_ARTICLES);
-  const [candidates, setCandidates] = useState<Candidate[]>(INITIAL_CANDIDATES);
-  const [pressReleases, setPressReleases] = useState<PressRelease[]>(INITIAL_PRESS_RELEASES);
-  const [announcements, setAnnouncements] = useState<Announcement[]>(INITIAL_ANNOUNCEMENTS);
+  const [members, setMembers] = useState<Member[]>(() => {
+    const saved = localStorage.getItem('poc_members');
+    return saved ? JSON.parse(saved) : INITIAL_MEMBERS;
+  });
+  const [cabinet, setCabinet] = useState<CabinetMember[]>(() => {
+    const saved = localStorage.getItem('poc_cabinet');
+    return saved ? JSON.parse(saved) : INITIAL_CABINET;
+  });
+  const [reports, setReports] = useState<IncidentReport[]>(() => {
+    const saved = localStorage.getItem('poc_reports');
+    return saved ? JSON.parse(saved) : INITIAL_REPORTS;
+  });
+  const [donations, setDonations] = useState<Donation[]>(() => {
+    const saved = localStorage.getItem('poc_donations');
+    return saved ? JSON.parse(saved) : INITIAL_DONATIONS;
+  });
+  const [lawArticles, setLawArticles] = useState<LawArticle[]>(() => {
+    const saved = localStorage.getItem('poc_lawArticles');
+    return saved ? JSON.parse(saved) : INITIAL_LAW_ARTICLES;
+  });
+  const [candidates, setCandidates] = useState<Candidate[]>(() => {
+    const saved = localStorage.getItem('poc_candidates');
+    return saved ? JSON.parse(saved) : INITIAL_CANDIDATES;
+  });
+  const [pressReleases, setPressReleases] = useState<PressRelease[]>(() => {
+    const saved = localStorage.getItem('poc_pressReleases');
+    return saved ? JSON.parse(saved) : INITIAL_PRESS_RELEASES;
+  });
+  const [announcements, setAnnouncements] = useState<Announcement[]>(() => {
+    const saved = localStorage.getItem('poc_announcements');
+    return saved ? JSON.parse(saved) : INITIAL_ANNOUNCEMENTS;
+  });
+
+  // Persist state updates to localStorage
+  useEffect(() => {
+    localStorage.setItem('poc_members', JSON.stringify(members));
+  }, [members]);
+
+  useEffect(() => {
+    localStorage.setItem('poc_cabinet', JSON.stringify(cabinet));
+  }, [cabinet]);
+
+  useEffect(() => {
+    localStorage.setItem('poc_reports', JSON.stringify(reports));
+  }, [reports]);
+
+  useEffect(() => {
+    localStorage.setItem('poc_donations', JSON.stringify(donations));
+  }, [donations]);
+
+  useEffect(() => {
+    localStorage.setItem('poc_lawArticles', JSON.stringify(lawArticles));
+  }, [lawArticles]);
+
+  useEffect(() => {
+    localStorage.setItem('poc_candidates', JSON.stringify(candidates));
+  }, [candidates]);
+
+  useEffect(() => {
+    localStorage.setItem('poc_pressReleases', JSON.stringify(pressReleases));
+  }, [pressReleases]);
+
+  useEffect(() => {
+    localStorage.setItem('poc_announcements', JSON.stringify(announcements));
+  }, [announcements]);
 
   // Google Sheets credentials persistent states
   const [googleToken, setGoogleToken] = useState<string | null>(localStorage.getItem('google_oauth_token'));
@@ -101,6 +158,7 @@ export default function App() {
 
   // Status inquirer portal state variables
   const [joinSubTab, setJoinSubTab] = useState<'register' | 'lookup'>('register');
+  const [showDraftPreviewMobile, setShowDraftPreviewMobile] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResult, setSearchResult] = useState<Member | null>(null);
   const [searchTried, setSearchTried] = useState(false);
@@ -646,34 +704,51 @@ export default function App() {
                   </div>
 
                   {/* Virtual Card Preview rendering column on Right (LOCKED FOR NEW APPLICANTS) */}
-                  <div className="lg:col-span-6 space-y-6">
-                    <div className="border-b border-stone-900 pb-2">
-                      <h3 className="text-md font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                        <Sparkles className="w-5 h-5 text-yellow-400" />
-                        Card Compiler Draft Preview
-                      </h3>
-                      <p className="text-[11px] text-stone-500 mt-0.5">As you type, details sync live on the vertical card below. Downloads are disabled until cabinet approval.</p>
+                  <div className="lg:col-span-6 space-y-4">
+                    {/* Collapsible Header/Toggler on Mobile */}
+                    <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800/80 flex items-center justify-between lg:border-0 lg:bg-transparent lg:p-0">
+                      <div className="flex-1">
+                        <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-yellow-400 animate-pulse" />
+                          Card Compiler Draft Preview
+                        </h3>
+                        <p className="text-[10px] text-stone-550 mt-0.5 hidden sm:block">Details sync live on the vertical card below.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowDraftPreviewMobile(!showDraftPreviewMobile)}
+                        className="lg:hidden text-[11.5px] font-black uppercase bg-[#006633] hover:bg-[#004d26] text-[#D4AF37] border border-[#D4AF37]/30 px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 shrink-0"
+                      >
+                        {showDraftPreviewMobile ? '🙈 Hide Draft Card' : '👁️ Show Draft Card'}
+                      </button>
                     </div>
 
-                    {/* Render Card preview strictly marked as Draft (Locked) */}
-                    <MemberCard 
-                      isDraft={true}
-                      member={
-                        registeredSuccess && newRegMemberRef
-                          ? newRegMemberRef
-                          : {
-                              name: regForm.name || 'YOUR FULL NAME',
-                              fatherName: regForm.fatherName || 'FATHER NAME',
-                              phone: regForm.phone || '+968 XXXX XXXX',
-                              omanId: regForm.omanId || 'CIVIL ID NO',
-                              regionOman: regForm.regionOman,
-                              regionPak: regForm.regionPak || 'HOME DISTRICT',
-                              bloodGroup: regForm.bloodGroup,
-                              cardType: 'Standard',
-                              registrationNo: 'POC-M-DRAFT'
-                            }
-                      }
-                    />
+                    {/* Content: always visible on lg, conditionally collapsed on mobile */}
+                    <div className={`${showDraftPreviewMobile ? 'block' : 'hidden lg:block'} space-y-4 animate-fadeIn`}>
+                      <div className="border-b border-stone-900 pb-2 hidden lg:block">
+                        <p className="text-[11px] text-stone-550">As you type, details sync live on the vertical card below. Downloads are disabled until cabinet approval.</p>
+                      </div>
+
+                      {/* Render Card preview strictly marked as Draft (Locked) */}
+                      <MemberCard 
+                        isDraft={true}
+                        member={
+                          registeredSuccess && newRegMemberRef
+                            ? newRegMemberRef
+                            : {
+                                name: regForm.name || 'YOUR FULL NAME',
+                                fatherName: regForm.fatherName || 'FATHER NAME',
+                                phone: regForm.phone || '+968 XXXX XXXX',
+                                omanId: regForm.omanId || 'CIVIL ID NO',
+                                regionOman: regForm.regionOman,
+                                regionPak: regForm.regionPak || 'HOME DISTRICT',
+                                bloodGroup: regForm.bloodGroup,
+                                cardType: 'Standard',
+                                registrationNo: 'POC-M-DRAFT'
+                              }
+                        }
+                      />
+                    </div>
                   </div>
                 </div>
               )}

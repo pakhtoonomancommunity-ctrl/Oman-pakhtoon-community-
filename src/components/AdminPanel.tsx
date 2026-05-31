@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { 
   KeyRound, Users, ShieldAlert, Award, Coins, Scale, FileText, Vote, 
   Trash2, Check, X, ShieldX, UserCheck, Plus, FileSpreadsheet, ListPlus,
-  RefreshCw, TrendingUp, HelpCircle, RefreshCcw, CreditCard, Image, Award as AwardIcon, Link
+  RefreshCw, TrendingUp, HelpCircle, RefreshCcw, CreditCard, Image, Award as AwardIcon, Link,
+  Camera, Upload
 } from 'lucide-react';
 import { 
   Member, CabinetMember, IncidentReport, Donation, 
@@ -63,9 +64,68 @@ export default function AdminPanel({
   // New forms states
   const [newCabinet, setNewCabinet] = useState({ name: '', role: '', phone: '', regionOman: '', regionPak: '', isVip: true });
   const [newLaw, setNewLaw] = useState({ title: '', category: 'General' as any, summary: '', content: '', isUrgent: false });
-  const [newCandidate, setNewCandidate] = useState({ name: '', position: 'President' as any, regionOman: '', description: '' });
+  const [newCandidate, setNewCandidate] = useState({ name: '', position: 'President' as any, regionOman: '', description: '', photoUrl: '' });
   const [newAnnouncement, setNewAnnouncement] = useState({ text: '', category: 'General' as any });
   const [newDonation, setNewDonation] = useState({ donorName: '', amount: '', isAnonymous: false, message: '' });
+
+  // Candidate camera capture state and elements
+  const [candCameraActive, setCandCameraActive] = useState(false);
+  const [candStream, setCandStream] = useState<MediaStream | null>(null);
+  const [candCameraError, setCandCameraError] = useState('');
+  const candVideoRef = React.useRef<HTMLVideoElement>(null);
+
+  const startCandCamera = async () => {
+    setCandCameraError('');
+    setCandCameraActive(true);
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 300, height: 300, facingMode: 'user' }
+      });
+      setCandStream(mediaStream);
+    } catch (err: any) {
+      console.error("Camera access failed:", err);
+      setCandCameraError('⚠️ Unable to access camera. Please check permissions.');
+      setCandCameraActive(false);
+    }
+  };
+
+  const stopCandCamera = () => {
+    if (candStream) {
+      candStream.getTracks().forEach(track => track.stop());
+      setCandStream(null);
+    }
+    setCandCameraActive(false);
+  };
+
+  const captureCandPhoto = () => {
+    if (candVideoRef.current) {
+      const video = candVideoRef.current;
+      const canvas = document.createElement('canvas');
+      canvas.width = 300;
+      canvas.height = 300;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, 300, 300);
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        setNewCandidate(prev => ({ ...prev, photoUrl: dataUrl }));
+      }
+      stopCandCamera();
+    }
+  };
+
+  React.useEffect(() => {
+    if (candStream && candVideoRef.current) {
+      candVideoRef.current.srcObject = candStream;
+    }
+  }, [candStream]);
+
+  React.useEffect(() => {
+    return () => {
+      if (candStream) {
+        candStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [candStream]);
 
   // Drive Export Simulation Guard
   const [gdriveStatus, setGdriveStatus] = useState('');
@@ -361,10 +421,10 @@ export default function AdminPanel({
       votes: 0,
       regionOman: newCandidate.regionOman || 'Muscat',
       description: newCandidate.description,
-      photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
+      photoUrl: newCandidate.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
     };
     setCandidates(prev => [...prev, created]);
-    setNewCandidate({ name: '', position: 'President', regionOman: '', description: '' });
+    setNewCandidate({ name: '', position: 'President', regionOman: '', description: '', photoUrl: '' });
     alert('🗳️ Candidate listed. Community members can now vote live!');
   };
 
@@ -1389,6 +1449,131 @@ export default function AdminPanel({
                     className="w-full bg-slate-900 border border-stone-850 rounded px-2.5 py-2 outline-none"
                     required
                   />
+                </div>
+
+                {/* CANDIDATE PORTRAIT UPLOADER */}
+                <div className="bg-slate-900/60 p-3 rounded-lg border border-stone-850 space-y-3">
+                  <label className="block text-stone-300 font-bold uppercase tracking-wider text-[10px]">
+                    Candidate Portrait
+                  </label>
+                  
+                  <div className="flex gap-4 items-center">
+                    {/* Portrait Preview Frame */}
+                    <div className="relative w-20 h-20 rounded-lg overflow-hidden border border-stone-800 bg-stone-950 shrink-0 flex items-center justify-center">
+                      {newCandidate.photoUrl ? (
+                        <img 
+                          src={newCandidate.photoUrl} 
+                          alt="Candidate portrait preview" 
+                          className="w-full h-full object-cover" 
+                        />
+                      ) : (
+                        <Image className="w-6 h-6 text-stone-600 animate-pulse" />
+                      )}
+
+                      {/* Clear Button if preview is set */}
+                      {newCandidate.photoUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setNewCandidate(prev => ({ ...prev, photoUrl: '' }))}
+                          className="absolute -top-1 -right-1 bg-red-900 border border-red-700/50 hover:bg-red-850 p-1 rounded-bl-lg text-white text-[10px] scale-90 transition-all font-bold"
+                          title="Remove image"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Action Select Control */}
+                    <div className="flex-1 space-y-2">
+                      <div className="flex gap-2">
+                        {/* Hidden file input */}
+                        <input
+                          id="candidate-file-input"
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                setNewCandidate(prev => ({ ...prev, photoUrl: reader.result as string }));
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => document.getElementById('candidate-file-input')?.click()}
+                          className="flex-1 bg-stone-800 hover:bg-stone-750 text-white font-semibold py-1.5 px-2.5 rounded border border-stone-700 flex items-center justify-center gap-1.5 transition-colors"
+                        >
+                          <Upload className="w-3.5 h-3.5 text-[#D4AF37]" /> File
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (candCameraActive) {
+                              stopCandCamera();
+                            } else {
+                              startCandCamera();
+                            }
+                          }}
+                          className={`flex-1 font-semibold py-1.5 px-2.5 rounded border flex items-center justify-center gap-1.5 transition-all ${
+                            candCameraActive 
+                              ? 'bg-amber-950 border-amber-900 text-[#D4AF37] animate-pulse' 
+                              : 'bg-stone-800 hover:bg-stone-750 border-stone-700 text-white'
+                          }`}
+                        >
+                          <Camera className="w-3.5 h-3.5 text-emerald-400" /> 
+                          {candCameraActive ? 'On' : 'Camera'}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-stone-500 font-sans leading-tight">
+                        Upload standard passport portrait or take real-time camera photo.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Camera view widget */}
+                  {candCameraActive && (
+                    <div className="space-y-2.5 bg-stone-950 p-2.5 rounded-lg border border-stone-850 animate-fadeIn">
+                      <div className="relative aspect-square w-full max-w-[200px] mx-auto overflow-hidden rounded-lg bg-black border border-stone-800">
+                        <video
+                          ref={candVideoRef}
+                          autoPlay
+                          playsInline
+                          muted
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute top-1.5 left-1.5 bg-red-600 text-white text-[8px] px-1.5 py-0.5 rounded uppercase font-bold tracking-widest animate-pulse">
+                          Live Feed
+                        </div>
+                      </div>
+
+                      {candCameraError && (
+                        <p className="text-[10px] text-center text-red-400 font-semibold">{candCameraError}</p>
+                      )}
+
+                      <div className="flex gap-2 justify-center max-w-[200px] mx-auto">
+                        <button
+                          type="button"
+                          onClick={captureCandPhoto}
+                          className="flex-1 bg-emerald-800 hover:bg-emerald-700 text-white font-bold py-1.5 rounded transition-all flex items-center justify-center gap-1 text-[10px]"
+                        >
+                          <Camera className="w-3 h-3 text-white" /> Capture
+                        </button>
+                        <button
+                          type="button"
+                          onClick={stopCandCamera}
+                          className="flex-1 bg-stone-800 hover:bg-stone-750 text-stone-300 font-semibold py-1.5 rounded transition-all text-[10px]"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <button
