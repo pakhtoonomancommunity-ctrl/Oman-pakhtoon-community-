@@ -19,76 +19,128 @@ import MemberCard from './components/MemberCard';
 import MembershipCertificate from './components/MembershipCertificate';
 import AdminPanel from './components/AdminPanel';
 import { checkAuthFromUrl, appendMemberToSheet } from './utils/googleSheets';
+import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
+import { db } from './firebase';
 
 export default function App() {
   const [activePage, setActivePage] = useState<string>('home');
   
   // Real-time Persistent States
-  const [members, setMembers] = useState<Member[]>(() => {
-    const saved = localStorage.getItem('poc_members');
-    return saved ? JSON.parse(saved) : INITIAL_MEMBERS;
-  });
-  const [cabinet, setCabinet] = useState<CabinetMember[]>(() => {
-    const saved = localStorage.getItem('poc_cabinet');
-    return saved ? JSON.parse(saved) : INITIAL_CABINET;
-  });
-  const [reports, setReports] = useState<IncidentReport[]>(() => {
-    const saved = localStorage.getItem('poc_reports');
-    return saved ? JSON.parse(saved) : INITIAL_REPORTS;
-  });
-  const [donations, setDonations] = useState<Donation[]>(() => {
-    const saved = localStorage.getItem('poc_donations');
-    return saved ? JSON.parse(saved) : INITIAL_DONATIONS;
-  });
-  const [lawArticles, setLawArticles] = useState<LawArticle[]>(() => {
-    const saved = localStorage.getItem('poc_lawArticles');
-    return saved ? JSON.parse(saved) : INITIAL_LAW_ARTICLES;
-  });
-  const [candidates, setCandidates] = useState<Candidate[]>(() => {
-    const saved = localStorage.getItem('poc_candidates');
-    return saved ? JSON.parse(saved) : INITIAL_CANDIDATES;
-  });
-  const [pressReleases, setPressReleases] = useState<PressRelease[]>(() => {
-    const saved = localStorage.getItem('poc_pressReleases');
-    return saved ? JSON.parse(saved) : INITIAL_PRESS_RELEASES;
-  });
-  const [announcements, setAnnouncements] = useState<Announcement[]>(() => {
-    const saved = localStorage.getItem('poc_announcements');
-    return saved ? JSON.parse(saved) : INITIAL_ANNOUNCEMENTS;
-  });
+  const [members, setMembers] = useState<Member[]>(INITIAL_MEMBERS);
+  const [cabinet, setCabinet] = useState<CabinetMember[]>(INITIAL_CABINET);
+  const [reports, setReports] = useState<IncidentReport[]>(INITIAL_REPORTS);
+  const [donations, setDonations] = useState<Donation[]>(INITIAL_DONATIONS);
+  const [lawArticles, setLawArticles] = useState<LawArticle[]>(INITIAL_LAW_ARTICLES);
+  const [candidates, setCandidates] = useState<Candidate[]>(INITIAL_CANDIDATES);
+  const [pressReleases, setPressReleases] = useState<PressRelease[]>(INITIAL_PRESS_RELEASES);
+  const [announcements, setAnnouncements] = useState<Announcement[]>(INITIAL_ANNOUNCEMENTS);
 
-  // Persist state updates to localStorage
+  // Synchronize collections with real-time Firebase Firestore matching schemas
   useEffect(() => {
-    localStorage.setItem('poc_members', JSON.stringify(members));
-  }, [members]);
+    const unsubscribes = [
+      onSnapshot(collection(db, 'members'), (snapshot) => {
+        if (snapshot.empty) {
+          INITIAL_MEMBERS.forEach(m => {
+            setDoc(doc(db, 'members', m.id), m).catch(err => console.error(err));
+          });
+        } else {
+          const list: Member[] = [];
+          snapshot.forEach(docSn => list.push(docSn.data() as Member));
+          setMembers(list);
+        }
+      }, (err) => {
+        console.error("members subscription error:", err);
+      }),
 
-  useEffect(() => {
-    localStorage.setItem('poc_cabinet', JSON.stringify(cabinet));
-  }, [cabinet]);
+      onSnapshot(collection(db, 'cabinet'), (snapshot) => {
+        if (snapshot.empty) {
+          INITIAL_CABINET.forEach(c => {
+            setDoc(doc(db, 'cabinet', c.id), c).catch(err => console.error(err));
+          });
+        } else {
+          const list: CabinetMember[] = [];
+          snapshot.forEach(docSn => list.push(docSn.data() as CabinetMember));
+          setCabinet(list);
+        }
+      }, (err) => {
+        console.error("cabinet subscription error:", err);
+      }),
 
-  useEffect(() => {
-    localStorage.setItem('poc_reports', JSON.stringify(reports));
-  }, [reports]);
+      onSnapshot(collection(db, 'reports'), (snapshot) => {
+        if (snapshot.empty) {
+          INITIAL_REPORTS.forEach(r => {
+            setDoc(doc(db, 'reports', r.id), r).catch(err => console.error(err));
+          });
+        } else {
+          const list: IncidentReport[] = [];
+          snapshot.forEach(docSn => list.push(docSn.data() as IncidentReport));
+          setReports(list);
+        }
+      }, (err) => {
+        console.error("reports subscription error:", err);
+      }),
 
-  useEffect(() => {
-    localStorage.setItem('poc_donations', JSON.stringify(donations));
-  }, [donations]);
+      onSnapshot(collection(db, 'donations'), (snapshot) => {
+        if (snapshot.empty) {
+          INITIAL_DONATIONS.forEach(d => {
+            setDoc(doc(db, 'donations', d.id), d).catch(err => console.error(err));
+          });
+        } else {
+          const list: Donation[] = [];
+          snapshot.forEach(docSn => list.push(docSn.data() as Donation));
+          setDonations(list);
+        }
+      }, (err) => {
+        console.error("donations subscription error:", err);
+      }),
 
-  useEffect(() => {
-    localStorage.setItem('poc_lawArticles', JSON.stringify(lawArticles));
-  }, [lawArticles]);
+      onSnapshot(collection(db, 'lawArticles'), (snapshot) => {
+        if (snapshot.empty) {
+          INITIAL_LAW_ARTICLES.forEach(l => {
+            setDoc(doc(db, 'lawArticles', l.id), l).catch(err => console.error(err));
+          });
+        } else {
+          const list: LawArticle[] = [];
+          snapshot.forEach(docSn => list.push(docSn.data() as LawArticle));
+          setLawArticles(list);
+        }
+      }, (err) => {
+        console.error("lawArticles subscription error:", err);
+      }),
 
-  useEffect(() => {
-    localStorage.setItem('poc_candidates', JSON.stringify(candidates));
-  }, [candidates]);
+      onSnapshot(collection(db, 'candidates'), (snapshot) => {
+        if (snapshot.empty) {
+          INITIAL_CANDIDATES.forEach(c => {
+            setDoc(doc(db, 'candidates', c.id), c).catch(err => console.error(err));
+          });
+        } else {
+          const list: Candidate[] = [];
+          snapshot.forEach(docSn => list.push(docSn.data() as Candidate));
+          setCandidates(list);
+        }
+      }, (err) => {
+        console.error("candidates subscription error:", err);
+      }),
 
-  useEffect(() => {
-    localStorage.setItem('poc_pressReleases', JSON.stringify(pressReleases));
-  }, [pressReleases]);
+      onSnapshot(collection(db, 'announcements'), (snapshot) => {
+        if (snapshot.empty) {
+          INITIAL_ANNOUNCEMENTS.forEach(a => {
+            setDoc(doc(db, 'announcements', a.id), a).catch(err => console.error(err));
+          });
+        } else {
+          const list: Announcement[] = [];
+          snapshot.forEach(docSn => list.push(docSn.data() as Announcement));
+          setAnnouncements(list);
+        }
+      }, (err) => {
+        console.error("announcements subscription error:", err);
+      })
+    ];
 
-  useEffect(() => {
-    localStorage.setItem('poc_announcements', JSON.stringify(announcements));
-  }, [announcements]);
+    return () => {
+      unsubscribes.forEach(unsub => unsub());
+    };
+  }, []);
 
   // Google Sheets credentials persistent states
   const [googleToken, setGoogleToken] = useState<string | null>(localStorage.getItem('google_oauth_token'));
@@ -214,7 +266,14 @@ export default function App() {
       feeStatus: 'Unpaid'
     };
 
-    setMembers(prev => [...prev, created]);
+    setDoc(doc(db, 'members', created.id), created)
+      .then(() => {
+        console.log('✅ Registered member successfully persisted in real-time to Firestore');
+      })
+      .catch((err) => {
+        console.error('❌ Firestore registration error:', err);
+      });
+
     setNewRegMemberRef(created);
     setRegisteredSuccess(true);
 
@@ -259,7 +318,14 @@ export default function App() {
       date: new Date().toISOString().split('T')[0]
     };
 
-    setDonations(prev => [created, ...prev]);
+    setDoc(doc(db, 'donations', created.id), created)
+      .then(() => {
+        console.log('✅ Donation successfully logged in real-time to Firestore');
+      })
+      .catch((err) => {
+        console.error('❌ Firestore donation logging error:', err);
+      });
+
     setDonationSuccess(true);
     setDonForm({ donorName: '', amount: '', isAnonymous: false, message: '' });
   };
@@ -283,7 +349,14 @@ export default function App() {
       date: new Date().toISOString().split('T')[0]
     };
 
-    setReports(prev => [created, ...prev]);
+    setDoc(doc(db, 'reports', created.id), created)
+      .then(() => {
+        console.log('✅ Incident report successfully logged in real-time to Firestore');
+      })
+      .catch((err) => {
+        console.error('❌ Firestore report logging error:', err);
+      });
+
     setReportSuccess(true);
     setRepForm({
       reporterName: '',
@@ -301,7 +374,18 @@ export default function App() {
       return;
     }
 
-    setCandidates(prev => prev.map(c => c.id === candidateId ? { ...c, votes: c.votes + 1 } : c));
+    const currentCandidate = candidates.find(c => c.id === candidateId);
+    if (!currentCandidate) return;
+
+    const updated = { ...currentCandidate, votes: currentCandidate.votes + 1 };
+    setDoc(doc(db, 'candidates', candidateId), updated)
+      .then(() => {
+        console.log('✅ Vote securely tracked log in real-time on Firestore');
+      })
+      .catch((err) => {
+        console.error('❌ Firestore vote synchronization error:', err);
+      });
+
     setVotedPositions(prev => [...prev, position]);
     alert(`🎉 Vote registered! Thank you for supporting democratic leadership for the role of ${position}.`);
   };

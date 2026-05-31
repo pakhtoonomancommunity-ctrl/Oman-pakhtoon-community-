@@ -11,6 +11,8 @@ import {
 } from '../types';
 import { createSpreadsheet, syncAllMembersToSheet, getGoogleAuthUrl, getGoogleClientId } from '../utils/googleSheets';
 import MembershipCertificate from './MembershipCertificate';
+import { doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 interface AdminPanelProps {
   members: Member[];
@@ -146,18 +148,44 @@ export default function AdminPanel({
   };
 
   const handleMemberStatus = (id: string, newStatus: 'Approved' | 'Rejected') => {
-    setMembers(prev => prev.map(m => {
-      if (m.id === id) {
-        const randReg = `POC-M-${Math.floor(1000 + Math.random() * 9000)}`;
-        return { ...m, status: newStatus, registrationNo: newStatus === 'Approved' ? randReg : 'POC-M-REJ' };
-      }
-      return m;
-    }));
+    setMembers(prev => {
+      const next = prev.map(m => {
+        if (m.id === id) {
+          const randReg = `POC-M-${Math.floor(1000 + Math.random() * 9000)}`;
+          const updated = { ...m, status: newStatus, registrationNo: newStatus === 'Approved' ? randReg : 'POC-M-REJ' };
+          
+          setDoc(doc(db, 'members', id), updated)
+            .then(() => console.log('✅ Real-time member status updated on Firestore'))
+            .catch(err => console.error('❌ Firestore update error:', err));
+
+          return updated;
+        }
+        return m;
+      });
+      localStorage.setItem('poc_members', JSON.stringify(next));
+      return next;
+    });
   };
 
   const deleteMember = (id: string) => {
     if (confirm('Are you sure you want to permanently delete this member?')) {
-      setMembers(prev => prev.filter(m => m.id !== id));
+      deleteDoc(doc(db, 'members', id))
+        .then(() => {
+          console.log('✅ Member permanently removed from Firestore');
+          // Auto sync to Sheets if connected
+          if (googleToken && googleSheetId) {
+            setTimeout(() => {
+              handleExportMembers();
+            }, 350);
+          }
+        })
+        .catch(err => console.error('❌ Firestore deletion error:', err));
+
+      setMembers(prev => {
+        const next = prev.filter(m => m.id !== id);
+        localStorage.setItem('poc_members', JSON.stringify(next));
+        return next;
+      });
     }
   };
 
@@ -284,13 +312,23 @@ export default function AdminPanel({
 
   // Toggles OMR 5 Fee Payment Status
   const toggleFeeStatus = (id: string) => {
-    setMembers(prev => prev.map(m => {
-      if (m.id === id) {
-        const nextStatus = m.feeStatus === 'Paid' ? 'Unpaid' : 'Paid';
-        return { ...m, feeStatus: nextStatus };
-      }
-      return m;
-    }));
+    setMembers(prev => {
+      const next = prev.map(m => {
+        if (m.id === id) {
+          const nextStatus = m.feeStatus === 'Paid' ? 'Unpaid' : 'Paid';
+          const updated = { ...m, feeStatus: nextStatus };
+          
+          setDoc(doc(db, 'members', id), updated)
+            .then(() => console.log('✅ Real-time fee status updated on Firestore'))
+            .catch(err => console.error('❌ Firestore update error:', err));
+
+          return updated;
+        }
+        return m;
+      });
+      localStorage.setItem('poc_members', JSON.stringify(next));
+      return next;
+    });
   };
 
 
@@ -313,25 +351,65 @@ export default function AdminPanel({
       joinDate: new Date().toISOString().split('T')[0],
       isVip: newCabinet.isVip
     };
-    setCabinet(prev => [...prev, created]);
+
+    setDoc(doc(db, 'cabinet', created.id), created)
+      .then(() => console.log('✅ Cabinet member added to Firestore'))
+      .catch(err => console.error('❌ Firestore write error:', err));
+
+    setCabinet(prev => {
+      const next = [...prev, created];
+      localStorage.setItem('poc_cabinet', JSON.stringify(next));
+      return next;
+    });
     setNewCabinet({ name: '', role: '', phone: '', regionOman: '', regionPak: '', isVip: true });
     alert('💚 VIP Cabinet member added and VIP Membership Card is issued!');
   };
 
   const deleteCabinet = (id: string) => {
     if (confirm('Remove this cabinet member?')) {
-      setCabinet(prev => prev.filter(c => c.id !== id));
+      deleteDoc(doc(db, 'cabinet', id))
+        .then(() => console.log('✅ Cabinet member deleted from Firestore'))
+        .catch(err => console.error('❌ Firestore deletion error:', err));
+
+      setCabinet(prev => {
+        const next = prev.filter(c => c.id !== id);
+        localStorage.setItem('poc_cabinet', JSON.stringify(next));
+        return next;
+      });
     }
   };
 
   // Incident Reports Actions
   const handleReportStatus = (id: string, status: any) => {
-    setReports(prev => prev.map(r => r.id === id ? { ...r, status } : r));
+    setReports(prev => {
+      const next = prev.map(r => {
+        if (r.id === id) {
+          const updated = { ...r, status };
+
+          setDoc(doc(db, 'reports', id), updated)
+            .then(() => console.log('✅ Real-time incident status updated on Firestore'))
+            .catch(err => console.error('❌ Firestore update error:', err));
+
+          return updated;
+        }
+        return r;
+      });
+      localStorage.setItem('poc_reports', JSON.stringify(next));
+      return next;
+    });
   };
 
   const deleteReport = (id: string) => {
     if (confirm('Delete this report entry?')) {
-      setReports(prev => prev.filter(r => r.id !== id));
+      deleteDoc(doc(db, 'reports', id))
+        .then(() => console.log('✅ Incident report deleted from Firestore'))
+        .catch(err => console.error('❌ Firestore deletion error:', err));
+
+      setReports(prev => {
+        const next = prev.filter(r => r.id !== id);
+        localStorage.setItem('poc_reports', JSON.stringify(next));
+        return next;
+      });
     }
   };
 
@@ -351,7 +429,16 @@ export default function AdminPanel({
       message: newDonation.message || 'Welfare contribution',
       date: new Date().toISOString().split('T')[0]
     };
-    setDonations(prev => [created, ...prev]);
+
+    setDoc(doc(db, 'donations', created.id), created)
+      .then(() => console.log('✅ Donation added to Firestore'))
+      .catch(err => console.error('❌ Firestore write error:', err));
+
+    setDonations(prev => {
+      const next = [created, ...prev];
+      localStorage.setItem('poc_donations', JSON.stringify(next));
+      return next;
+    });
     setNewDonation({ donorName: '', amount: '', isAnonymous: false, message: '' });
     alert('💚 Donation recorded in transparent portal bookkeepingledger!');
   };
@@ -372,14 +459,31 @@ export default function AdminPanel({
       isUrgent: newLaw.isUrgent,
       date: new Date().toISOString().split('T')[0]
     };
-    setLawArticles(prev => [created, ...prev]);
+
+    setDoc(doc(db, 'lawArticles', created.id), created)
+      .then(() => console.log('✅ Law article published to Firestore'))
+      .catch(err => console.error('❌ Firestore write error:', err));
+
+    setLawArticles(prev => {
+      const next = [created, ...prev];
+      localStorage.setItem('poc_lawArticles', JSON.stringify(next));
+      return next;
+    });
     setNewLaw({ title: '', category: 'General', summary: '', content: '', isUrgent: false });
     alert('📰 Labor law article has been published to the active advice section!');
   };
 
   const deleteLaw = (id: string) => {
     if (confirm('Delete this advice/law article?')) {
-      setLawArticles(prev => prev.filter(l => l.id !== id));
+      deleteDoc(doc(db, 'lawArticles', id))
+        .then(() => console.log('✅ Law article deleted from Firestore'))
+        .catch(err => console.error('❌ Firestore deletion error:', err));
+
+      setLawArticles(prev => {
+        const next = prev.filter(l => l.id !== id);
+        localStorage.setItem('poc_lawArticles', JSON.stringify(next));
+        return next;
+      });
     }
   };
 
@@ -394,17 +498,49 @@ export default function AdminPanel({
       active: true,
       date: new Date().toISOString().split('T')[0]
     };
-    setAnnouncements(prev => [created, ...prev]);
+
+    setDoc(doc(db, 'announcements', created.id), created)
+      .then(() => console.log('✅ Announcement added to Firestore'))
+      .catch(err => console.error('❌ Firestore write error:', err));
+
+    setAnnouncements(prev => {
+      const next = [created, ...prev];
+      localStorage.setItem('poc_announcements', JSON.stringify(next));
+      return next;
+    });
     setNewAnnouncement({ text: '', category: 'General' });
     alert('📣 Alert added directly to the top scrolling marquee!');
   };
 
   const toggleAnnouncement = (id: string) => {
-    setAnnouncements(prev => prev.map(a => a.id === id ? { ...a, active: !a.active } : a));
+    setAnnouncements(prev => {
+      const next = prev.map(a => {
+        if (a.id === id) {
+          const updated = { ...a, active: !a.active };
+
+          setDoc(doc(db, 'announcements', id), updated)
+            .then(() => console.log('✅ Real-time announcement status updated on Firestore'))
+            .catch(err => console.error('❌ Firestore update error:', err));
+
+          return updated;
+        }
+        return a;
+      });
+      localStorage.setItem('poc_announcements', JSON.stringify(next));
+      return next;
+    });
   };
 
   const deleteAnnouncement = (id: string) => {
-    setAnnouncements(prev => prev.filter(a => a.id !== id));
+    deleteDoc(doc(db, 'announcements', id))
+      .then(() => console.log('✅ Announcement deleted from Firestore'))
+      .catch(err => console.error('❌ Firestore deletion error:', err));
+
+    setAnnouncements(prev => {
+      const next = prev.filter(a => a.id !== id);
+      localStorage.setItem('poc_announcements', JSON.stringify(next));
+      return next;
+    });
   };
 
   // Candidates Actions
@@ -423,14 +559,31 @@ export default function AdminPanel({
       description: newCandidate.description,
       photoUrl: newCandidate.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
     };
-    setCandidates(prev => [...prev, created]);
+
+    setDoc(doc(db, 'candidates', created.id), created)
+      .then(() => console.log('✅ Candidate added to Firestore'))
+      .catch(err => console.error('❌ Firestore write error:', err));
+
+    setCandidates(prev => {
+      const next = [...prev, created];
+      localStorage.setItem('poc_candidates', JSON.stringify(next));
+      return next;
+    });
     setNewCandidate({ name: '', position: 'President', regionOman: '', description: '', photoUrl: '' });
     alert('🗳️ Candidate listed. Community members can now vote live!');
   };
 
   const deleteCandidate = (id: string) => {
     if (confirm('Remove this candidate from ballots?')) {
-      setCandidates(prev => prev.filter(c => c.id !== id));
+      deleteDoc(doc(db, 'candidates', id))
+        .then(() => console.log('✅ Candidate deleted from Firestore'))
+        .catch(err => console.error('❌ Firestore deletion error:', err));
+
+      setCandidates(prev => {
+        const next = prev.filter(c => c.id !== id);
+        localStorage.setItem('poc_candidates', JSON.stringify(next));
+        return next;
+      });
     }
   };
 

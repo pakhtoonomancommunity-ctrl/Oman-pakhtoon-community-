@@ -1,0 +1,168 @@
+{
+  "entities": {
+    "Member": {
+      "title": "Member",
+      "description": "Registered, standard cataloged members holding valid membership cards.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "fatherName": { "type": "string" },
+        "phone": { "type": "string" },
+        "passportNo": { "type": "string" },
+        "omanId": { "type": "string" },
+        "regionOman": { "type": "string" },
+        "regionPak": { "type": "string" },
+        "bloodGroup": { "type": "string" },
+        "cardType": { "type": "string", "enum": ["Standard", "VIP"] },
+        "status": { "type": "string", "enum": ["Pending", "Approved", "Rejected"] },
+        "joinDate": { "type": "string" },
+        "registrationNo": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "feeAmount": { "type": "number" },
+        "feeStatus": { "type": "string", "enum": ["Unpaid", "Paid"] }
+      },
+      "required": ["id", "name", "fatherName", "phone", "omanId", "regionOman", "regionPak", "bloodGroup", "cardType", "status", "joinDate", "registrationNo"]
+    },
+    "CabinetMember": {
+      "title": "CabinetMember",
+      "description": "An appointed member of the community leadership cabinet.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "phone": { "type": "string" },
+        "regionOman": { "type": "string" },
+        "regionPak": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "registrationNo": { "type": "string" },
+        "joinDate": { "type": "string" },
+        "isVip": { "type": "boolean" }
+      },
+      "required": ["id", "name", "role", "phone", "regionOman", "regionPak", "photoUrl", "registrationNo", "joinDate", "isVip"]
+    },
+    "IncidentReport": {
+      "title": "IncidentReport",
+      "description": "An emergency or assistance report filed by a community member.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "reporterName": { "type": "string" },
+        "reporterPhone": { "type": "string" },
+        "incidentType": { "type": "string", "enum": ["Death", "Injury", "Lost Person", "Labor Dispute", "Other"] },
+        "personName": { "type": "string" },
+        "details": { "type": "string" },
+        "location": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pending", "Verified", "Investigating", "Resolved"] },
+        "date": { "type": "string" }
+      },
+      "required": ["id", "reporterName", "reporterPhone", "incidentType", "personName", "details", "location", "status", "date"]
+    },
+    "Donation": {
+      "title": "Donation",
+      "description": "Welfare or educational scholarship donation contribution.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "donorName": { "type": "string" },
+        "amount": { "type": "number" },
+        "isAnonymous": { "type": "boolean" },
+        "message": { "type": "string" },
+        "date": { "type": "string" }
+      },
+      "required": ["id", "donorName", "amount", "isAnonymous", "message", "date"]
+    },
+    "LawArticle": {
+      "title": "LawArticle",
+      "description": "Labor advisory and Omani law references.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string", "enum": ["General", "Visa & ID", "Sponsorship (Kafala)", "Wages & Gratuity", "Termination", "Fines & Penalties"] },
+        "summary": { "type": "string" },
+        "content": { "type": "string" },
+        "isUrgent": { "type": "boolean" },
+        "date": { "type": "string" }
+      },
+      "required": ["id", "title", "category", "summary", "content", "isUrgent", "date"]
+    },
+    "Candidate": {
+      "title": "Candidate",
+      "description": "Democratic election candidate for cabinet ballots.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "position": { "type": "string", "enum": ["President", "Vice President", "General Secretary", "Finance Secretary", "Media Coordinator"] },
+        "votes": { "type": "number" },
+        "regionOman": { "type": "string" },
+        "description": { "type": "string" },
+        "photoUrl": { "type": "string" }
+      },
+      "required": ["id", "name", "position", "votes", "regionOman", "description", "photoUrl"]
+    },
+    "PressRelease": {
+      "title": "PressRelease",
+      "description": "Official community public press statements.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "date": { "type": "string" },
+        "content": { "type": "string" },
+        "issuedBy": { "type": "string" },
+        "reads": { "type": "number" }
+      },
+      "required": ["id", "title", "date", "content", "issuedBy", "reads"]
+    },
+    "Announcement": {
+      "title": "Announcement",
+      "description": "Scrolling announcement news item.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "category": { "type": "string", "enum": ["Urgent", "Cabinet Meeting", "Embassy Update", "General"] },
+        "active": { "type": "boolean" },
+        "date": { "type": "string" }
+      },
+      "required": ["id", "text", "category", "active", "date"]
+    }
+  },
+  "firestore": {
+    "members/{memberId}": {
+      "schema": "Member",
+      "description": "Collection of POC registered system members."
+    },
+    "cabinet/{cabinetId}": {
+      "schema": "CabinetMember",
+      "description": "Collection of community active cabinet council headers."
+    },
+    "reports/{reportId}": {
+      "schema": "IncidentReport",
+      "description": "Emergency tracking ticket issues managed in realtime database."
+    },
+    "donations/{donationId}": {
+      "schema": "Donation",
+      "description": "Financial charity book entries recorded on Firestore backend."
+    },
+    "lawArticles/{lawId}": {
+      "schema": "LawArticle",
+      "description": "Public advising law resources."
+    },
+    "candidates/{candidateId}": {
+      "schema": "Candidate",
+      "description": "Active democratic contest nominee listings & live polls."
+    },
+    "pressReleases/{releaseId}": {
+      "schema": "PressRelease",
+      "description": "Official press statements issued for standard display panels."
+    },
+    "announcements/{announcementId}": {
+      "schema": "Announcement",
+      "description": "Scrolling marquee system news items sync."
+    }
+  }
+}
