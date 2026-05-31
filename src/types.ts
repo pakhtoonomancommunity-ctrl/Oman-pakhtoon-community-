@@ -12,6 +12,9 @@ export interface Member {
   status: 'Pending' | 'Approved' | 'Rejected';
   joinDate: string;
   registrationNo: string;
+  photoUrl?: string;
+  feeAmount?: number;
+  feeStatus?: 'Unpaid' | 'Paid';
 }
 
 export interface CabinetMember {

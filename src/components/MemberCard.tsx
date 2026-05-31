@@ -172,17 +172,44 @@ export default function MemberCard({ member }: MemberCardProps) {
     // Crescent/Star symbol representation (drawing it with basic shape or using Emoji)
     ctx.fillStyle = '#ffffff';
     ctx.font = '60-bold 50px system-ui, sans-serif';
-    ctx.fillText('⭐', 520, 330);
+    ctx.fillText('⭐', 520, 340);
 
-    // Trigger immediate browser download
-    setTimeout(() => {
+    // Dynamic member photo if available (Right Side Coordinate)
+    const finalizeCardGen = () => {
       const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
       link.download = `POC_Card_${name.replace(/\s+/g, '_')}.png`;
       link.href = dataUrl;
       link.click();
       setDownloading(false);
-    }, 450);
+    };
+
+    if (member.photoUrl) {
+      const img = new Image();
+      img.src = member.photoUrl;
+      img.onload = () => {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(520, 210, 50, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(img, 470, 160, 100, 100);
+        ctx.restore();
+
+        // Border around photo
+        ctx.strokeStyle = '#D4AF37';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(520, 210, 50, 0, Math.PI * 2);
+        ctx.stroke();
+
+        setTimeout(finalizeCardGen, 200);
+      };
+      img.onerror = () => {
+        setTimeout(finalizeCardGen, 200);
+      };
+    } else {
+      setTimeout(finalizeCardGen, 200);
+    }
   };
 
   const isVip = cardType === 'VIP';
@@ -226,38 +253,47 @@ export default function MemberCard({ member }: MemberCardProps) {
           </div>
         </div>
 
-        {/* Member Details Columns */}
-        <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-[10px]">
-          <div>
-            <p className="opacity-40 uppercase font-black tracking-wider text-[8px]">FullName</p>
-            <p className="font-extrabold text-white tracking-tight text-xs truncate uppercase">{name}</p>
-          </div>
-          <div>
-            <p className="opacity-40 uppercase font-black tracking-wider text-[8px]">Father Name</p>
-            <p className="font-extrabold text-stone-200 truncate uppercase">{fatherName}</p>
+        {/* Member Details Columns and Photo flex wrapper */}
+        <div className="flex gap-4 items-center justify-between">
+          <div className="grid grid-cols-2 gap-y-2.5 gap-x-2 text-[10px] flex-1">
+            <div>
+              <p className="opacity-40 uppercase font-black tracking-wider text-[8px]">FullName</p>
+              <p className="font-extrabold text-white tracking-tight text-xs truncate uppercase">{name}</p>
+            </div>
+            <div>
+              <p className="opacity-40 uppercase font-black tracking-wider text-[8px]">Father Name</p>
+              <p className="font-extrabold text-stone-200 truncate uppercase">{fatherName}</p>
+            </div>
+
+            <div>
+              <p className="opacity-40 uppercase font-black tracking-wider text-[8px]">Passport / Oman ID</p>
+              <p className="font-mono font-bold text-stone-200">{omanId}</p>
+            </div>
+            <div>
+              <p className="opacity-40 uppercase font-black tracking-wider text-[8px]">Contact Phone</p>
+              <p className="font-mono font-bold text-stone-100 flex items-center gap-1">
+                <Phone className="w-3 h-3 text-[#D4AF37]" /> {phone}
+              </p>
+            </div>
+
+            <div>
+              <p className="opacity-40 uppercase font-black tracking-wider text-[8px]">Sponsor Region (Oman)</p>
+              <p className="font-bold text-stone-200 flex items-center gap-1 truncate uppercase">
+                <MapPin className="w-3 h-3 text-[#D4AF37]" /> {regionOman}
+              </p>
+            </div>
+            <div>
+              <p className="opacity-40 uppercase font-black tracking-wider text-[8px]">Home District (Pak)</p>
+              <p className="font-bold text-stone-200 truncate uppercase">{regionPak}</p>
+            </div>
           </div>
 
-          <div>
-            <p className="opacity-40 uppercase font-black tracking-wider text-[8px]">Passport / Oman ID</p>
-            <p className="font-mono font-bold text-stone-200">{omanId}</p>
-          </div>
-          <div>
-            <p className="opacity-40 uppercase font-black tracking-wider text-[8px]">Contact Phone</p>
-            <p className="font-mono font-bold text-stone-100 flex items-center gap-1">
-              <Phone className="w-3 h-3 text-[#D4AF37]" /> {phone}
-            </p>
-          </div>
-
-          <div>
-            <p className="opacity-40 uppercase font-black tracking-wider text-[8px]">Sponsor Region (Oman)</p>
-            <p className="font-bold text-stone-200 flex items-center gap-1 truncate uppercase">
-              <MapPin className="w-3 h-3 text-[#D4AF37]" /> {regionOman}
-            </p>
-          </div>
-          <div>
-            <p className="opacity-40 uppercase font-black tracking-wider text-[8px]">Home District (Pak)</p>
-            <p className="font-bold text-stone-200 truncate uppercase">{regionPak}</p>
-          </div>
+          {/* Sizing circular image for rendering */}
+          {member.photoUrl && (
+            <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-[#D4AF37] bg-stone-900 shadow-lg shrink-0 flex items-center justify-center relative z-10 animate-fadeIn">
+              <img src={member.photoUrl} alt="Portrait" className="w-full h-full object-cover" />
+            </div>
+          )}
         </div>
 
         {/* Bottom Bar badge codes */}

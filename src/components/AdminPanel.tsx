@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { 
   KeyRound, Users, ShieldAlert, Award, Coins, Scale, FileText, Vote, 
   Trash2, Check, X, ShieldX, UserCheck, Plus, FileSpreadsheet, ListPlus,
-  RefreshCw, TrendingUp, HelpCircle, RefreshCcw
+  RefreshCw, TrendingUp, HelpCircle, RefreshCcw, CreditCard, Image, Award as AwardIcon, Link
 } from 'lucide-react';
 import { 
   Member, CabinetMember, IncidentReport, Donation, 
   LawArticle, Candidate, PressRelease, Announcement 
 } from '../types';
+import { createSpreadsheet, syncAllMembersToSheet, getGoogleAuthUrl, getGoogleClientId } from '../utils/googleSheets';
+import MembershipCertificate from './MembershipCertificate';
 
 interface AdminPanelProps {
   members: Member[];
@@ -26,6 +28,11 @@ interface AdminPanelProps {
   setPressReleases: React.Dispatch<React.SetStateAction<PressRelease[]>>;
   announcements: Announcement[];
   setAnnouncements: React.Dispatch<React.SetStateAction<Announcement[]>>;
+  
+  googleToken: string | null;
+  setGoogleToken: (token: string | null) => void;
+  googleSheetId: string | null;
+  setGoogleSheetId: (sheetId: string | null) => void;
 }
 
 export default function AdminPanel({
@@ -37,11 +44,21 @@ export default function AdminPanel({
   candidates, setCandidates,
   pressReleases, setPressReleases,
   announcements, setAnnouncements,
+  
+  googleToken, setGoogleToken,
+  googleSheetId, setGoogleSheetId,
 }: AdminPanelProps) {
   const [password, setPassword] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [adminTab, setAdminTab] = useState<'overview' | 'members' | 'cabinet' | 'reports' | 'donations' | 'news' | 'ticker' | 'elections'>('overview');
+  
+  // Custom Google Client ID (for easy setup)
+  const [customClientId, setCustomClientId] = useState(getGoogleClientId() || localStorage.getItem('google_custom_client_id') || '');
+  
+  // Active member for Certificate Viewing Dialog
+  const [selectedCertMember, setSelectedCertMember] = useState<Member | null>(null);
+
 
   // New forms states
   const [newCabinet, setNewCabinet] = useState({ name: '', role: '', phone: '', regionOman: '', regionPak: '', isVip: true });
@@ -84,16 +101,73 @@ export default function AdminPanel({
     }
   };
 
-  // Google Drive Members Export Simulation
-  const handleExportMembers = () => {
-    setGdriveStatus('🔄 Accessing Google Drive OAuth context...');
-    setTimeout(() => {
-      setGdriveStatus('📑 Structuring verified member cells (XLSXS)...');
-    }, 1000);
-    setTimeout(() => {
-      setGdriveStatus(`✅ EXPORT SUCCESS: "Pakhtoon_Oman_Members_${new Date().toISOString().split('T')[0]}.xlsx" has been created and synced directly with pakhtoonomancommunity@gmail.com GDrive Workspace folder!`);
-    }, 2000);
+  // Google Sheets OAuth, Creation & Sync Integration
+  const handleConnectOAuth = () => {
+    if (!customClientId.trim()) {
+      alert('⚠️ To complete Google Sheets integration, please provide a Google OAuth Client ID first. You can generate one in your Google Developer Console.');
+      return;
+    }
+    localStorage.setItem('google_custom_client_id', customClientId.trim());
+    setGdriveStatus('🔄 Connecting to Google Drive OAuth portal...');
+    const authUrl = getGoogleAuthUrl(customClientId.trim());
+    window.location.href = authUrl;
   };
+
+  const handleDisconnectGoogle = () => {
+    setGoogleToken(null);
+    setGoogleSheetId(null);
+    localStorage.removeItem('google_oauth_token');
+    localStorage.removeItem('google_sheet_id');
+    setGdriveStatus('❌ Disconnected from Google Workspace credentials.');
+  };
+
+  const handleCreateSheet = async () => {
+    if (!googleToken) {
+      alert('⚠️ Please authenticate with Google first.');
+      return;
+    }
+    setGdriveStatus('🔄 Provisioning new Google Sheet inside your Google Drive...');
+    try {
+      const sheetId = await createSpreadsheet(googleToken, 'Pakhtoon Oman Community - Registered Members');
+      setGoogleSheetId(sheetId);
+      localStorage.setItem('google_sheet_id', sheetId);
+      setGdriveStatus(`✅ SPREADSHEET CREATED! Linked Sheet ID: ${sheetId}. Headers applied instantly!`);
+    } catch (err: any) {
+      console.error(err);
+      setGdriveStatus(`❌ Error creating sheet: ${err.message || err}`);
+    }
+  };
+
+  const handleExportMembers = async () => {
+    if (!googleToken) {
+      alert('⚠️ Please authenticate with Google first.');
+      return;
+    }
+    if (!googleSheetId) {
+      alert('⚠️ Please construct or link a Google Sheet first.');
+      return;
+    }
+    setGdriveStatus('🔄 Synchronizing members directory with Google Sheets...');
+    try {
+      await syncAllMembersToSheet(googleToken, googleSheetId, members);
+      setGdriveStatus(`✅ SYNCHRONIZATION SUCCESS! Registered spreadsheet updated at ${new Date().toLocaleTimeString()} with ${members.length} member rows!`);
+    } catch (err: any) {
+      console.error(err);
+      setGdriveStatus(`❌ Sync Failed: ${err.message || err}. Try re-authenticating if token expired.`);
+    }
+  };
+
+  // Toggles OMR 5 Fee Payment Status
+  const toggleFeeStatus = (id: string) => {
+    setMembers(prev => prev.map(m => {
+      if (m.id === id) {
+        const nextStatus = m.feeStatus === 'Paid' ? 'Unpaid' : 'Paid';
+        return { ...m, feeStatus: nextStatus };
+      }
+      return m;
+    }));
+  };
+
 
   // Cabinet Actions
   const handleAddCabinet = (e: React.FormEvent) => {
@@ -414,32 +488,130 @@ export default function AdminPanel({
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h3 className="text-lg font-bold text-white">Pending Membership Applications</h3>
-              <p className="text-xs text-stone-400">Approve registrations to issue registration IDs and generate Standard Cards.</p>
+              <h3 className="text-xl font-bold text-white font-display">Pending & Approved Registrations</h3>
+              <p className="text-xs text-stone-400">Approve registrations, track physical photo submissions, monitor the 5 OMR fee, and issue official certificates.</p>
             </div>
-            
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={handleExportMembers}
-                className="bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold px-4 py-2.5 rounded shadow flex items-center gap-2"
-              >
-                <FileSpreadsheet className="w-4 h-4" /> Export verified Members (to Google Drive)
-              </button>
-              {gdriveStatus && (
-                <p className="text-[11px] text-yellow-400 max-w-sm transition-all animate-fadeIn">{gdriveStatus}</p>
-              )}
+          </div>
+
+          {/* GOOGLE DRIVE & SHEETS REAL-TIME INTEGRATION DASHBOARD */}
+          <div className="bg-slate-950/80 p-5 rounded-xl border border-stone-850 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-stone-850 pb-3">
+              <div className="flex items-center gap-2">
+                <FileSpreadsheet className="w-6 h-6 text-emerald-500" />
+                <div>
+                  <h4 className="font-extrabold text-white text-sm font-display uppercase tracking-wider">Real-Time Google Sheets Database Connection</h4>
+                  <p className="text-[10px] text-stone-400">Directly link this portal with your Google Drive & Google Sheets workspace.</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {googleToken ? (
+                  <button
+                    onClick={handleDisconnectGoogle}
+                    className="p-1 px-3 bg-red-950/80 hover:bg-red-900/60 border border-red-900/40 text-red-400 rounded text-[11px] font-bold transition-all uppercase tracking-wider cursor-pointer"
+                  >
+                    Disconnect
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleConnectOAuth}
+                    className="p-1 px-3.5 bg-gerald-800 bg-[#006633] hover:bg-emerald-700 text-white rounded text-[11px] font-bold transition-all uppercase tracking-wider cursor-pointer"
+                  >
+                    Link Google Account
+                  </button>
+                )}
+              </div>
             </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
+              <div className="space-y-2.5">
+                <label className="block text-stone-300 font-bold uppercase tracking-wider text-[10px]">Google Client ID (Implicit Credentials)</label>
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    value={customClientId}
+                    onChange={(e) => setCustomClientId(e.target.value)}
+                    placeholder="Enter Client ID (e.g. xxxxxxxx.apps.googleusercontent.com)"
+                    className="w-full bg-slate-900 border border-stone-800 rounded px-2.5 py-1.5 outline-none text-white focus:border-[#D4AF37] font-mono font-bold text-[11px]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      localStorage.setItem('google_custom_client_id', customClientId.trim());
+                      alert('🔑 Client ID saved to custom browser credentials!');
+                    }}
+                    className="bg-stone-800 hover:bg-stone-700 text-stone-300 p-1.5 px-3.5 rounded font-bold uppercase tracking-wider cursor-pointer text-[10px]"
+                  >
+                    Save
+                  </button>
+                </div>
+                <p className="text-[9.5px] text-stone-500 leading-relaxed">
+                  Provide a standard Web Application Client ID from your Google Cloud Console. This credential is kept completely secure entirely inside your browser local context.
+                </p>
+              </div>
+
+              <div className="flex flex-col justify-between">
+                <div>
+                  <p className="font-bold text-stone-300 uppercase tracking-widest text-[9px]">Connection Status</p>
+                  <p className={`text-[11px] mt-1 flex items-center gap-1.5 font-bold uppercase ${googleToken ? 'text-emerald-400' : 'text-amber-500'}`}>
+                    <span className="w-2 h-2 rounded-full bg-current animate-pulse"></span>
+                    {googleToken ? 'Authenticated & Synced' : 'Connection Needed'}
+                  </p>
+                  {googleSheetId && (
+                    <p className="font-mono text-[10px] text-emerald-500 truncate mt-1">
+                      🔗 Connected spreadsheet ID: {googleSheetId}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex gap-2 mt-3">
+                  {googleToken && !googleSheetId && (
+                    <button
+                      onClick={handleCreateSheet}
+                      className="bg-[#D4AF37] hover:brightness-110 text-slate-950 font-extrabold px-3.5 py-1.5 rounded text-[11px] uppercase tracking-wide cursor-pointer shadow"
+                    >
+                      Provision Spreadsheet
+                    </button>
+                  )}
+                  {googleToken && googleSheetId && (
+                    <button
+                      onClick={handleExportMembers}
+                      className="bg-[#006633] hover:bg-emerald-700 text-white font-extrabold px-3.5 py-1.5 rounded text-[11px] flex items-center gap-1.5 cursor-pointer uppercase tracking-wide shadow"
+                    >
+                      <RefreshCcw className="w-3.5 h-3.5" /> Force Directory Sync
+                    </button>
+                  )}
+                  {googleToken && (
+                    <a
+                      href={googleSheetId ? `https://docs.google.com/spreadsheets/d/${googleSheetId}/edit` : '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`text-[11px] px-3.5 py-1.5 rounded font-bold flex items-center gap-1.5 bg-stone-800 hover:bg-stone-700 text-stone-300 ${!googleSheetId && 'opacity-50 pointer-events-none'}`}
+                    >
+                      <Link className="w-3 h-3 text-[#D4AF37]" /> View Google Sheet
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {gdriveStatus && (
+              <p className="text-[11px] text-yellow-500 bg-yellow-950/10 px-3 py-2 rounded border border-yellow-950/30 animate-fadeIn font-mono leading-relaxed">
+                {gdriveStatus}
+              </p>
+            )}
           </div>
 
           <div className="overflow-x-auto border border-stone-800 rounded-xl bg-slate-950/70">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-900 border-b border-stone-800 text-stone-400 font-extrabold uppercase tracking-wider">
+                  <th className="p-3">Photo</th>
                   <th className="p-3">Applicant Name</th>
                   <th className="p-3">Father Name</th>
                   <th className="p-3">Oman ID No</th>
                   <th className="p-3">Contact</th>
                   <th className="p-3">Regions (Oman/Pak)</th>
+                  <th className="p-3 text-center">Registration Fee (5 OMR)</th>
                   <th className="p-3 text-center">Status</th>
                   <th className="p-3 text-right">Actions</th>
                 </tr>
@@ -447,13 +619,47 @@ export default function AdminPanel({
               <tbody className="divide-y divide-stone-800/50">
                 {members.map(mem => (
                   <tr key={mem.id} className="hover:bg-slate-900/60 transition-colors">
+                    <td className="p-3">
+                      <div className="w-10 h-10 rounded-full overflow-hidden border border-stone-800 bg-stone-900 flex items-center justify-center">
+                        {mem.photoUrl ? (
+                          <img src={mem.photoUrl} alt="Applicant" className="w-full h-full object-cover animate-fadeIn" referrerPolicy="no-referrer" />
+                        ) : (
+                          <Users className="w-4 h-4 text-stone-600" />
+                        )}
+                      </div>
+                    </td>
                     <td className="p-3 font-semibold text-white uppercase">{mem.name}</td>
                     <td className="p-3 text-stone-300 font-medium uppercase">{mem.fatherName}</td>
-                    <td className="p-3 font-mono font-bold text-amber-500">{mem.omanId}</td>
+                    <td className="p-3 font-mono font-bold text-[#D4AF37]">{mem.omanId}</td>
                     <td className="p-3 text-stone-300 font-mono font-medium">{mem.phone}</td>
                     <td className="p-3">
                       <p className="text-stone-300 font-medium uppercase">🇴🇲 {mem.regionOman}</p>
                       <p className="text-slate-500 text-[10px] uppercase">🇵🇰 {mem.regionPak}</p>
+                    </td>
+                    <td className="p-3 text-center">
+                      <div className="flex flex-col items-center justify-center gap-1">
+                        <span className="font-mono font-bold text-white">5 OMR</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            toggleFeeStatus(mem.id);
+                            // Auto trigger sync update when connected
+                            if (googleToken && googleSheetId) {
+                              setTimeout(() => {
+                                handleExportMembers();
+                              }, 350);
+                            }
+                          }}
+                          className={`px-2 py-0.5 rounded cursor-pointer font-extrabold text-[9px] uppercase border transition-all flex items-center gap-1 ${
+                            mem.feeStatus === 'Paid'
+                              ? 'bg-emerald-950/60 text-emerald-400 border-emerald-900/40 hover:bg-emerald-900/30'
+                              : 'bg-red-950/50 text-red-400 border-red-900/30 hover:bg-red-900/20'
+                          }`}
+                        >
+                          <CreditCard className="w-2.5 h-2.5" />
+                          {mem.feeStatus === 'Paid' ? 'Paid (OMR 5)' : 'Unpaid (OMR 5)'}
+                        </button>
+                      </div>
                     </td>
                     <td className="p-3 text-center">
                       <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
@@ -465,10 +671,28 @@ export default function AdminPanel({
                       </span>
                     </td>
                     <td className="p-3 text-right">
-                      <div className="flex justify-end gap-1.5">
+                      <div className="flex justify-end items-center gap-1.5">
+                        {mem.status === 'Approved' && (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedCertMember(mem)}
+                            className="p-1 px-2.5 bg-yellow-950/80 hover:bg-[#D4AF37] text-[#D4AF37] hover:text-stone-950 border border-[#D4AF37]/30 text-[10px] font-black rounded flex items-center gap-1 transition-all uppercase cursor-pointer"
+                            title="Issue official Certificate"
+                          >
+                            <AwardIcon className="w-3.5 h-3.5" /> Certificate
+                          </button>
+                        )}
                         {mem.status !== 'Approved' && (
                           <button
-                            onClick={() => handleMemberStatus(mem.id, 'Approved')}
+                            onClick={() => {
+                              handleMemberStatus(mem.id, 'Approved');
+                              // Auto sync to Sheets if connected
+                              if (googleToken && googleSheetId) {
+                                setTimeout(() => {
+                                  handleExportMembers();
+                                }, 350);
+                              }
+                            }}
                             className="p-1 px-2 bg-emerald-800 hover:bg-emerald-700 text-white text-[11px] font-bold rounded flex items-center gap-1"
                             title="Approve Member"
                           >
@@ -477,7 +701,15 @@ export default function AdminPanel({
                         )}
                         {mem.status !== 'Rejected' && (
                           <button
-                            onClick={() => handleMemberStatus(mem.id, 'Rejected')}
+                            onClick={() => {
+                              handleMemberStatus(mem.id, 'Rejected');
+                              // Auto sync to Sheets if connected
+                              if (googleToken && googleSheetId) {
+                                setTimeout(() => {
+                                  handleExportMembers();
+                                }, 350);
+                              }
+                            }}
                             className="p-1 px-2 bg-amber-900 hover:bg-amber-800 text-amber-300 text-[11px] font-bold rounded flex items-center gap-1"
                             title="Reject Applicant"
                           >
@@ -486,7 +718,7 @@ export default function AdminPanel({
                         )}
                         <button
                           onClick={() => deleteMember(mem.id)}
-                          className="p-1 bg-red-950/80 hover:bg-red-900/60 border border-red-900/40 text-red-500 rounded"
+                          className="p-1 bg-red-950/80 hover:bg-red-900/60 border border-red-900/40 text-red-500 rounded cursor-pointer"
                           title="Delete permanently"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -498,6 +730,15 @@ export default function AdminPanel({
               </tbody>
             </table>
           </div>
+
+          {/* Certificate Viewing Dialog Portal */}
+          {selectedCertMember && (
+            <MembershipCertificate 
+              member={selectedCertMember}
+              onClose={() => setSelectedCertMember(null)}
+            />
+          )}
+
         </div>
       )}
 

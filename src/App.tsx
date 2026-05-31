@@ -17,6 +17,7 @@ import Footer from './components/Footer';
 import Billboard from './components/Billboard';
 import MemberCard from './components/MemberCard';
 import AdminPanel from './components/AdminPanel';
+import { checkAuthFromUrl, appendMemberToSheet } from './utils/googleSheets';
 
 export default function App() {
   const [activePage, setActivePage] = useState<string>('home');
@@ -31,6 +32,23 @@ export default function App() {
   const [pressReleases, setPressReleases] = useState<PressRelease[]>(INITIAL_PRESS_RELEASES);
   const [announcements, setAnnouncements] = useState<Announcement[]>(INITIAL_ANNOUNCEMENTS);
 
+  // Google Sheets credentials persistent states
+  const [googleToken, setGoogleToken] = useState<string | null>(localStorage.getItem('google_oauth_token'));
+  const [googleSheetId, setGoogleSheetId] = useState<string | null>(localStorage.getItem('google_sheet_id'));
+
+  useEffect(() => {
+    const { token, state } = checkAuthFromUrl();
+    if (token) {
+      setGoogleToken(token);
+      localStorage.setItem('google_oauth_token', token);
+      
+      // If we authenticated from admin sheets tab, redirect there directly!
+      if (state && state.includes('activePage=cabinet')) {
+        setActivePage('admin');
+      }
+    }
+  }, []);
+
   // User Voting Memory
   const [votedPositions, setVotedPositions] = useState<string[]>([]);
 
@@ -43,7 +61,8 @@ export default function App() {
     omanId: '',
     regionOman: 'Muscat',
     regionPak: '',
-    bloodGroup: 'B+'
+    bloodGroup: 'B+',
+    photoUrl: ''
   });
   const [registeredSuccess, setRegisteredSuccess] = useState(false);
   const [newRegMemberRef, setNewRegMemberRef] = useState<Member | null>(null);
@@ -92,12 +111,27 @@ export default function App() {
       cardType: 'Standard',
       status: 'Pending',
       joinDate: new Date().toISOString().split('T')[0],
-      registrationNo: 'POC-M-PEND'
+      registrationNo: 'POC-M-PEND',
+      photoUrl: regForm.photoUrl || '',
+      feeAmount: 5,
+      feeStatus: 'Unpaid'
     };
 
     setMembers(prev => [...prev, created]);
     setNewRegMemberRef(created);
     setRegisteredSuccess(true);
+
+    // Auto append to Google Sheets if credentials and sheets are active
+    if (googleToken && googleSheetId) {
+      appendMemberToSheet(googleToken, googleSheetId, created)
+        .then(() => {
+          console.log('✅ Real-time Google Sheet registration row appended successfully!');
+        })
+        .catch((err) => {
+          console.error('❌ Failed to append to Google Sheet in real-time:', err);
+        });
+    }
+
     setRegForm({
       name: '',
       fatherName: '',
@@ -106,7 +140,8 @@ export default function App() {
       omanId: '',
       regionOman: 'Muscat',
       regionPak: '',
-      bloodGroup: 'B+'
+      bloodGroup: 'B+',
+      photoUrl: ''
     });
   };
 
@@ -477,9 +512,49 @@ export default function App() {
                         </div>
                       </div>
 
+                      {/* MEMBERSHIP PROFILE PHOTO SELECTOR */}
+                      <div>
+                        <label className="block text-stone-300 font-bold mb-1.5 uppercase">Membership Face Profile Photo <span className="text-stone-500 font-normal">(Highly Recommended)</span></label>
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-full overflow-hidden border border-slate-800 bg-slate-950 flex items-center justify-center shrink-0">
+                            {regForm.photoUrl ? (
+                              <img src={regForm.photoUrl} alt="Preview" className="w-full h-full object-cover" />
+                            ) : (
+                              <UserPlus className="w-5 h-5 text-stone-600" />
+                            )}
+                          </div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  setRegForm({...regForm, photoUrl: reader.result as string});
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                            className="w-full bg-slate-950 border border-slate-800 focus:border-[#D4AF37] rounded px-2.5 py-1.5 outline-none text-white text-[11px] font-mono focus:ring-1 focus:ring-[#D4AF37] file:mr-4 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[10px] file:font-semibold file:bg-stone-800 file:text-stone-300 hover:file:bg-stone-750 file:cursor-pointer"
+                          />
+                        </div>
+                      </div>
+
+                      {/* OMR 5 REGISTRATION FEE ADVISORY */}
+                      <div className="bg-emerald-950/40 p-3.5 rounded-lg border border-emerald-900/45 text-stone-300 space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <Coins className="w-4 h-4 text-[#D4AF37]" />
+                          <h4 className="font-extrabold text-white text-[11px] uppercase tracking-wider">Oman Cabinet hand-off policy</h4>
+                        </div>
+                        <p className="text-[10.5px] text-stone-400 leading-relaxed">
+                          An official lifetime registration fee of <strong className="text-[#D4AF37] font-black">5 Omani Riyal (5 OMR)</strong> applies to all registrants for logistics coverage. Status remains <span className="text-amber-400 font-bold uppercase font-mono">Pending</span> until payment is verified by the registrar.
+                        </p>
+                      </div>
+
                       <button
                         type="submit"
-                        className="w-full bg-gradient-to-r from-[#006633] to-emerald-800 hover:brightness-110 text-white font-extrabold text-xs uppercase py-3.5 rounded-lg shadow-lg tracking-wider"
+                        className="w-full bg-gradient-to-r from-[#006633] to-emerald-800 hover:brightness-110 text-white font-extrabold text-xs uppercase py-3.5 rounded-lg shadow-lg tracking-wider cursor-pointer transition-all"
                       >
                         Register for Membership Card
                       </button>
@@ -1190,6 +1265,11 @@ export default function App() {
               setPressReleases={setPressReleases}
               announcements={announcements}
               setAnnouncements={setAnnouncements}
+              
+              googleToken={googleToken}
+              setGoogleToken={setGoogleToken}
+              googleSheetId={googleSheetId}
+              setGoogleSheetId={setGoogleSheetId}
             />
           )}
 
