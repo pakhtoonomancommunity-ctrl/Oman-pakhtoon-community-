@@ -157,6 +157,43 @@ export default function AdminPanel({
     }
   };
 
+  // Exports the Welfare Ledger data to CSV for audits
+  const handleExportWelfareCSV = () => {
+    if (donations.length === 0) {
+      alert('⚠️ No ledger entries to export.');
+      return;
+    }
+
+    const headers = ['Transaction ID', 'Date', 'Donor Name', 'Amount (OMR)', 'Message/Blessing/Audit Notes'];
+    const rows = donations.map(d => [
+      d.id,
+      d.date,
+      d.donorName,
+      String(d.amount),
+      d.message
+    ]);
+
+    // Format fields containing commas or quotes correctly per RFC 4180
+    const csvRows = [headers, ...rows].map(row => 
+      row.map(field => {
+        const escaped = (field || '').replace(/"/g, '""');
+        return `"${escaped}"`;
+      }).join(',')
+    );
+
+    const csvContent = csvRows.join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Welfare_Ledger_Audit_Export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   // Toggles OMR 5 Fee Payment Status
   const toggleFeeStatus = (id: string) => {
     setMembers(prev => prev.map(m => {
@@ -1014,7 +1051,17 @@ export default function AdminPanel({
 
             {/* Real-time Ledger */}
             <div className="col-span-2 bg-slate-950/40 p-5 rounded-xl border border-stone-800 space-y-4">
-              <h3 className="text-md font-bold text-white border-b border-stone-800 pb-2 uppercase tracking-wide">Dynamic Bookkeeping Registry</h3>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-800 pb-2">
+                <h3 className="text-md font-bold text-white uppercase tracking-wide">Dynamic Bookkeeping Registry</h3>
+                <button
+                  type="button"
+                  onClick={handleExportWelfareCSV}
+                  className="px-3.5 py-1.5 bg-[#006633] hover:bg-emerald-700 text-white border border-[#D4AF37]/30 text-[10.5px] font-extrabold rounded-md flex items-center justify-center gap-1.5 cursor-pointer uppercase tracking-widest transition-all shadow-md"
+                  title="Export Welfare Ledger rows to audited CSV spreadsheet"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-[#D4AF37]" /> Export Ledger (CSV)
+                </button>
+              </div>
               
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">

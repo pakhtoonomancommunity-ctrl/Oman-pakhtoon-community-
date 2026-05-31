@@ -1,8 +1,12 @@
 import { Member } from '../types';
 
-// Read VITE_GOOGLE_CLIENT_ID from environment if defined, otherwise allow custom input
+// Read VITE_GOOGLE_CLIENT_ID from environment if defined and valid, otherwise fall back to default client ID
 export const getGoogleClientId = (): string => {
-  return ((import.meta as any).env?.VITE_GOOGLE_CLIENT_ID as string) || '';
+  const envId = ((import.meta as any).env?.VITE_GOOGLE_CLIENT_ID as string) || '';
+  if (envId && envId.includes('apps.googleusercontent.com')) {
+    return envId;
+  }
+  return '417245017023-moi1fqq7v4iorf781j5sd03qkcur8pev.apps.googleusercontent.com';
 };
 
 /**
