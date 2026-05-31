@@ -87,53 +87,7 @@ export const INITIAL_CABINET: CabinetMember[] = [
   }
 ];
 
-export const INITIAL_MEMBERS: Member[] = [
-  {
-    id: 'mem1',
-    name: 'Ziauddin Yusufzai',
-    fatherName: 'Gul Yusufzai',
-    phone: '+968 9456 1234',
-    passportNo: 'ZP1234567',
-    omanId: '109283472',
-    regionOman: 'Muttrah, Muscat',
-    regionPak: 'Shangla',
-    bloodGroup: 'A+',
-    cardType: 'Standard',
-    status: 'Approved',
-    joinDate: '2024-04-12',
-    registrationNo: 'POC-M-1029'
-  },
-  {
-    id: 'mem2',
-    name: 'Saddar Khan Mohmand',
-    fatherName: 'Qayyum Mohmand',
-    phone: '+968 9654 3210',
-    passportNo: 'ZP7654321',
-    omanId: '110293847',
-    regionOman: 'Seeb, Muscat',
-    regionPak: 'Mohmand District',
-    bloodGroup: 'O+',
-    cardType: 'Standard',
-    status: 'Approved',
-    joinDate: '2025-01-10',
-    registrationNo: 'POC-M-1184'
-  },
-  {
-    id: 'mem3',
-    name: 'Basit Ali Marwat',
-    fatherName: 'Khushal Khan',
-    phone: '+968 9123 7890',
-    passportNo: 'ZP9988776',
-    omanId: '112938475',
-    regionOman: 'Ibri',
-    regionPak: 'Lakki Marwat',
-    bloodGroup: 'B+',
-    cardType: 'Standard',
-    status: 'Pending',
-    joinDate: '2026-05-29',
-    registrationNo: 'POC-M-PEND'
-  }
-];
+export const INITIAL_MEMBERS: Member[] = [];
 
 export const INITIAL_DONATIONS: Donation[] = [
   {

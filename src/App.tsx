@@ -40,9 +40,7 @@ export default function App() {
     const unsubscribes = [
       onSnapshot(collection(db, 'members'), (snapshot) => {
         if (snapshot.empty) {
-          INITIAL_MEMBERS.forEach(m => {
-            setDoc(doc(db, 'members', m.id), m).catch(err => console.error(err));
-          });
+          setMembers([]);
         } else {
           const list: Member[] = [];
           snapshot.forEach(docSn => list.push(docSn.data() as Member));
