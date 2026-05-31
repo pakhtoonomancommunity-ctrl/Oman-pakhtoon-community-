@@ -19,7 +19,7 @@ import MemberCard from './components/MemberCard';
 import MembershipCertificate from './components/MembershipCertificate';
 import AdminPanel from './components/AdminPanel';
 import { checkAuthFromUrl, appendMemberToSheet } from './utils/googleSheets';
-import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, getDocs, addDoc, deleteDoc } from 'firebase/firestore';
 import { db } from './firebase';
 
 export default function App() {
@@ -37,19 +37,10 @@ export default function App() {
 
   // Synchronize collections with real-time Firebase Firestore matching schemas
   useEffect(() => {
-    const unsubscribes = [
-      onSnapshot(collection(db, 'members'), (snapshot) => {
-        if (snapshot.empty) {
-          setMembers([]);
-        } else {
-          const list: Member[] = [];
-          snapshot.forEach(docSn => list.push(docSn.data() as Member));
-          setMembers(list);
-        }
-      }, (err) => {
-        console.error("members subscription error:", err);
-      }),
+    // Initial fetch of members
+    loadMembers().catch((err) => console.error("Error loading members initially:", err));
 
+    const unsubscribes = [
       onSnapshot(collection(db, 'cabinet'), (snapshot) => {
         if (snapshot.empty) {
           INITIAL_CABINET.forEach(c => {
@@ -234,27 +225,28 @@ export default function App() {
   });
   const [reportSuccess, setReportSuccess] = useState(false);
 
-  // Calculate live statistics
-  const donationTotal = donations.reduce((sum, item) => sum + item.amount, 0);
-  const acceptedMembersCount = members.filter(m => m.status === 'Approved').length;
+  // Load members from Firestore
+  async function loadMembers() {
+    const snapshot = await getDocs(collection(db, "members"));
+    const membersList: any[] = [];
+    snapshot.forEach((doc) => {
+      membersList.push({ id: doc.id, ...doc.data() });
+    });
+    setMembers(membersList as Member[]);
+  }
 
-  const handleRegisterSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!regForm.name || !regForm.fatherName || !regForm.phone || !regForm.omanId) {
-      alert('Please fill out all required fields');
-      return;
-    }
-
-    const created: Member = {
-      id: `mem-${Date.now()}`,
-      name: regForm.name,
-      fatherName: regForm.fatherName,
-      phone: regForm.phone,
+  // Add a new member
+  async function addMember(name: string) {
+    const docRef = await addDoc(collection(db, "members"), {
+      name: name,
+      createdAt: new Date().toISOString(),
+      fatherName: regForm.fatherName || '',
+      phone: regForm.phone || '',
       passportNo: regForm.passportNo || 'ZP' + Math.floor(100000 + Math.random() * 900000),
-      omanId: regForm.omanId,
-      regionOman: regForm.regionOman,
+      omanId: regForm.omanId || '',
+      regionOman: regForm.regionOman || 'Muscat',
       regionPak: regForm.regionPak || 'Khyber Pakhtunkhwa',
-      bloodGroup: regForm.bloodGroup,
+      bloodGroup: regForm.bloodGroup || 'B+',
       cardType: 'Standard',
       status: 'Pending',
       joinDate: new Date().toISOString().split('T')[0],
@@ -262,28 +254,66 @@ export default function App() {
       photoUrl: regForm.photoUrl || '',
       feeAmount: 5,
       feeStatus: 'Unpaid'
-    };
+    });
+    await loadMembers();
+    return docRef;
+  }
 
-    setDoc(doc(db, 'members', created.id), created)
-      .then(() => {
-        console.log('✅ Registered member successfully persisted in real-time to Firestore');
-      })
-      .catch((err) => {
-        console.error('❌ Firestore registration error:', err);
-      });
+  // Delete a member
+  async function deleteMember(id: string) {
+    await deleteDoc(doc(db, "members", id));
+    await loadMembers();
+  }
 
-    setNewRegMemberRef(created);
-    setRegisteredSuccess(true);
+  // Calculate live statistics
+  const donationTotal = donations.reduce((sum, item) => sum + item.amount, 0);
+  const acceptedMembersCount = members.filter(m => m.status === 'Approved').length;
 
-    // Auto append to Google Sheets if credentials and sheets are active
-    if (googleToken && googleSheetId) {
-      appendMemberToSheet(googleToken, googleSheetId, created)
-        .then(() => {
-          console.log('✅ Real-time Google Sheet registration row appended successfully!');
-        })
-        .catch((err) => {
-          console.error('❌ Failed to append to Google Sheet in real-time:', err);
-        });
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!regForm.name || !regForm.fatherName || !regForm.phone || !regForm.omanId) {
+      alert('Please fill out all required fields');
+      return;
+    }
+
+    try {
+      const docRef = await addMember(regForm.name);
+      
+      const created: Member = {
+        id: docRef.id,
+        name: regForm.name,
+        fatherName: regForm.fatherName,
+        phone: regForm.phone,
+        passportNo: regForm.passportNo || 'ZP' + Math.floor(100000 + Math.random() * 900000),
+        omanId: regForm.omanId,
+        regionOman: regForm.regionOman,
+        regionPak: regForm.regionPak || 'Khyber Pakhtunkhwa',
+        bloodGroup: regForm.bloodGroup,
+        cardType: 'Standard',
+        status: 'Pending',
+        joinDate: new Date().toISOString().split('T')[0],
+        registrationNo: 'POC-M-PEND',
+        photoUrl: regForm.photoUrl || '',
+        feeAmount: 5,
+        feeStatus: 'Unpaid'
+      };
+
+      setNewRegMemberRef(created);
+      setRegisteredSuccess(true);
+
+      // Auto append to Google Sheets if credentials and sheets are active
+      if (googleToken && googleSheetId) {
+        appendMemberToSheet(googleToken, googleSheetId, created)
+          .then(() => {
+            console.log('✅ Real-time Google Sheet registration row appended successfully!');
+          })
+          .catch((err) => {
+            console.error('❌ Failed to append to Google Sheet in real-time:', err);
+          });
+      }
+    } catch (err) {
+      console.error('❌ Firestore registration error:', err);
+      alert('Error registering member. Please try again.');
     }
 
     setRegForm({
@@ -1675,6 +1705,7 @@ export default function App() {
             <AdminPanel 
               members={members}
               setMembers={setMembers}
+              deleteMember={deleteMember}
               cabinet={cabinet}
               setCabinet={setCabinet}
               reports={reports}

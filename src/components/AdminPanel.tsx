@@ -17,6 +17,7 @@ import { db } from '../firebase';
 interface AdminPanelProps {
   members: Member[];
   setMembers: React.Dispatch<React.SetStateAction<Member[]>>;
+  deleteMember: (id: string) => Promise<void>;
   cabinet: CabinetMember[];
   setCabinet: React.Dispatch<React.SetStateAction<CabinetMember[]>>;
   reports: IncidentReport[];
@@ -39,7 +40,7 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({
-  members, setMembers,
+  members, setMembers, deleteMember: deleteMemberProp,
   cabinet, setCabinet,
   reports, setReports,
   donations, setDonations,
@@ -167,25 +168,20 @@ export default function AdminPanel({
     });
   };
 
-  const deleteMember = (id: string) => {
+  const deleteMember = async (id: string) => {
     if (confirm('Are you sure you want to permanently delete this member?')) {
-      deleteDoc(doc(db, 'members', id))
-        .then(() => {
-          console.log('✅ Member permanently removed from Firestore');
-          // Auto sync to Sheets if connected
-          if (googleToken && googleSheetId) {
-            setTimeout(() => {
-              handleExportMembers();
-            }, 350);
-          }
-        })
-        .catch(err => console.error('❌ Firestore deletion error:', err));
-
-      setMembers(prev => {
-        const next = prev.filter(m => m.id !== id);
-        localStorage.setItem('poc_members', JSON.stringify(next));
-        return next;
-      });
+      try {
+        await deleteMemberProp(id);
+        console.log('✅ Member permanently removed from Firestore');
+        // Auto sync to Sheets if connected
+        if (googleToken && googleSheetId) {
+          setTimeout(() => {
+            handleExportMembers();
+          }, 350);
+        }
+      } catch (err) {
+        console.error('❌ Firestore deletion error:', err);
+      }
     }
   };
 
