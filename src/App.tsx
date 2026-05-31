@@ -16,6 +16,7 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import Billboard from './components/Billboard';
 import MemberCard from './components/MemberCard';
+import MembershipCertificate from './components/MembershipCertificate';
 import AdminPanel from './components/AdminPanel';
 import { checkAuthFromUrl, appendMemberToSheet } from './utils/googleSheets';
 
@@ -97,6 +98,13 @@ export default function App() {
   });
   const [registeredSuccess, setRegisteredSuccess] = useState(false);
   const [newRegMemberRef, setNewRegMemberRef] = useState<Member | null>(null);
+
+  // Status inquirer portal state variables
+  const [joinSubTab, setJoinSubTab] = useState<'register' | 'lookup'>('register');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResult, setSearchResult] = useState<Member | null>(null);
+  const [searchTried, setSearchTried] = useState(false);
+  const [selectedCertMember, setSelectedCertMember] = useState<Member | null>(null);
 
   // Welfare Donation Draft states
   const [donForm, setDonForm] = useState({
@@ -397,233 +405,461 @@ export default function App() {
 
           {/* ==================== 2. JOIN US VIEW ==================== */}
           {activePage === 'join' && (
-            <div className="space-y-8 animate-fadeIn" id="page-join">
-              <div className="border-b border-slate-850 pb-4">
-                <h2 className="text-3xl font-black text-white flex items-center gap-2 font-display">
-                  <UserPlus className="w-8 h-8 text-[#D4AF37]" /> Member Registration Portal
-                </h2>
-                <p className="text-xs sm:text-sm text-stone-400 mt-1">
-                  Fill out your professional details below to generate your standard Active Member Digital Card instantly. Once approved by the Cabinet, your Card number becomes fully valid in Muscat, Suhar, and Salalah databases.
-                </p>
+            <div className="space-y-6 animate-fadeIn" id="page-join">
+              <div className="border-b border-slate-850 pb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <h2 className="text-3xl font-black text-white flex items-center gap-2 font-display">
+                    <UserPlus className="w-8 h-8 text-[#D4AF37]" /> Member Portal
+                  </h2>
+                  <p className="text-xs text-stone-400 mt-1">
+                    Register for POC standard active membership, and securely retrieve your validated vertical card and horizontal certificate once central cabinet confirmation is approved.
+                  </p>
+                </div>
+
+                {/* Subtab Navigation Buttons */}
+                <div className="flex bg-slate-905 p-1 rounded-xl border border-slate-800/80 max-w-sm w-full md:w-auto self-start md:self-center">
+                  <button
+                    onClick={() => setJoinSubTab('register')}
+                    className={`flex-1 md:flex-initial px-4 py-2 text-[10.5px] font-black uppercase tracking-wider rounded transition-all flex items-center justify-center gap-1.5 ${
+                      joinSubTab === 'register' ? 'bg-[#006633] text-[#D4AF37] border-b-2 border-[#D4AF37] font-extrabold shadow-md' : 'text-stone-400 hover:text-white'
+                    }`}
+                  >
+                    <UserPlus className="w-3.5 h-3.5" /> 📝 Enroll Register
+                  </button>
+                  <button
+                    onClick={() => setJoinSubTab('lookup')}
+                    className={`flex-1 md:flex-initial px-4 py-2 text-[10.5px] font-black uppercase tracking-wider rounded transition-all flex items-center justify-center gap-1.5 ${
+                      joinSubTab === 'lookup' ? 'bg-[#006633] text-[#D4AF37] border-b-2 border-[#D4AF37] font-extrabold shadow-md' : 'text-stone-400 hover:text-white'
+                    }`}
+                  >
+                    <FileText className="w-3.5 h-3.5" /> 🔍 Status & Downloads
+                  </button>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                
-                {/* Form column on Left */}
-                <div className="lg:col-span-6 bg-gradient-to-b from-slate-900 to-slate-950 p-6 rounded-2xl border border-slate-800/80 shadow-2xl relative overflow-hidden space-y-6">
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#006633] to-[#D4AF37]"></div>
-                
-                  {registeredSuccess ? (
-                    <div className="text-center py-8 space-y-4" id="success-registration">
-                      <div className="w-14 h-14 rounded-full bg-emerald-950/60 border border-emerald-900/50 flex items-center justify-center mx-auto text-[#D4AF37]">
-                        <CheckCircle className="w-8 h-8 animate-pulse" />
-                      </div>
-                      <h4 className="text-lg font-bold text-white font-display">Application Received!</h4>
-                      <p className="text-xs text-stone-400 leading-relaxed max-w-sm mx-auto">
-                        Your application for standard active registration has been securely placed in the queue. You can preview and download your temporary member card on the right! Status will reflect as verified once audited. No password needed!
-                      </p>
-                      <button 
-                        onClick={() => setRegisteredSuccess(false)}
-                        className="bg-[#006633] hover:bg-[#004d26] text-white font-extrabold text-xs uppercase px-5 py-2.5 rounded transition-all mt-2"
-                      >
-                        Submit another form
-                      </button>
-                    </div>
-                  ) : (
-                    <form onSubmit={handleRegisterSubmit} className="space-y-4 text-xs">
-                      <h3 className="text-xs font-bold text-[#D4AF37] uppercase tracking-widest border-b border-slate-800/80 pb-2.5">Registration Slip</h3>
-                      
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-stone-300 font-bold mb-1.5 uppercase">Full Name <span className="text-[#D4AF37]">*</span></label>
-                          <input
-                            type="text"
-                            value={regForm.name}
-                            onChange={(e) => setRegForm({...regForm, name: e.target.value})}
-                            placeholder="e.g. Basit Ali Swati"
-                            className="w-full bg-slate-950 border border-slate-800 focus:border-[#D4AF37] rounded px-2.5 py-2 outline-none text-white font-semibold focus:ring-1 focus:ring-[#D4AF37]"
-                            required
-                          />
+              {/* TAB 1: REGISTER ENROLLMENT */}
+              {joinSubTab === 'register' && (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                  {/* Form column on Left */}
+                  <div className="lg:col-span-6 bg-gradient-to-b from-slate-900 to-slate-950 p-6 rounded-2xl border border-slate-800/80 shadow-2xl relative overflow-hidden space-y-6">
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#006633] to-[#D4AF37]"></div>
+                  
+                    {registeredSuccess ? (
+                      <div className="text-center py-8 space-y-4" id="success-registration">
+                        <div className="w-14 h-14 rounded-full bg-emerald-950/60 border border-emerald-900/50 flex items-center justify-center mx-auto text-[#D4AF37]">
+                          <CheckCircle className="w-8 h-8 animate-pulse" />
                         </div>
-                        <div>
-                          <label className="block text-stone-300 font-bold mb-1.5 uppercase">Father's Name <span className="text-[#D4AF37]">*</span></label>
-                          <input
-                            type="text"
-                            value={regForm.fatherName}
-                            onChange={(e) => setRegForm({...regForm, fatherName: e.target.value})}
-                            placeholder="e.g. Sher Zaman Khattak"
-                            className="w-full bg-slate-950 border border-slate-800 focus:border-[#D4AF37] rounded px-2.5 py-2 outline-none text-white font-semibold focus:ring-1 focus:ring-[#D4AF37]"
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-stone-300 font-bold mb-1.5 uppercase">Oman Contact Phone <span className="text-[#D4AF37]">*</span></label>
-                          <input
-                            type="text"
-                            value={regForm.phone}
-                            onChange={(e) => setRegForm({...regForm, phone: e.target.value})}
-                            placeholder="e.g. +968 9111 2233"
-                            className="w-full bg-slate-950 border border-slate-800 focus:border-[#D4AF37] rounded px-2.5 py-2 outline-none text-white font-mono focus:ring-1 focus:ring-[#D4AF37]"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-stone-300 font-bold mb-1.5 uppercase">Oman Civil ID Number <span className="text-[#D4AF37]">*</span></label>
-                          <input
-                            type="text"
-                            value={regForm.omanId}
-                            onChange={(e) => setRegForm({...regForm, omanId: e.target.value})}
-                            placeholder="e.g. 10928374"
-                            className="w-full bg-slate-950 border border-slate-800 focus:border-[#D4AF37] rounded px-2.5 py-2 outline-none text-white font-mono focus:ring-1 focus:ring-[#D4AF37]"
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-stone-300 font-bold mb-1.5 uppercase">Oman Sponsor residency region <span className="text-[#D4AF37]">*</span></label>
-                          <select
-                            value={regForm.regionOman}
-                            onChange={(e) => setRegForm({...regForm, regionOman: e.target.value})}
-                            className="w-full bg-slate-950 border border-slate-800 focus:border-[#D4AF37] rounded px-2.5 py-2 cursor-pointer outline-none text-white font-semibold focus:ring-1 focus:ring-[#D4AF37]"
-                          >
-                            <option value="Muscat">Muscat (Ruwi/Seeb)</option>
-                            <option value="Suhar">Suhar (Al Batinah)</option>
-                            <option value="Salalah">Salalah (Dhofar)</option>
-                            <option value="Nizwa">Nizwa (Al Dakhiliyah)</option>
-                            <option value="Ibri">Ibri (Al Dhahirah)</option>
-                            <option value="Duqm">Duqm (Wustah)</option>
-                            <option value="Sur">Sur (Ash Sharqiyah)</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-stone-300 font-bold mb-1.5 uppercase">Home District in Pakistan <span className="text-[#D4AF37]">*</span></label>
-                          <input
-                            type="text"
-                            value={regForm.regionPak}
-                            onChange={(e) => setRegForm({...regForm, regionPak: e.target.value})}
-                            placeholder="e.g. Swat Swabi or Khyber Agency"
-                            className="w-full bg-slate-950 border border-slate-800 focus:border-[#D4AF37] rounded px-2.5 py-2 outline-none text-white font-semibold focus:ring-1 focus:ring-[#D4AF37]"
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-stone-300 font-bold mb-1.5 uppercase">Blood Group <span className="text-[#D4AF37]">*</span></label>
-                          <select
-                            value={regForm.bloodGroup}
-                            onChange={(e) => setRegForm({...regForm, bloodGroup: e.target.value})}
-                            className="w-full bg-slate-950 border border-slate-800 focus:border-[#D4AF37] rounded px-2.5 py-2 cursor-pointer outline-none text-white text-xs font-semibold focus:ring-1 focus:ring-[#D4AF37]"
-                          >
-                            <option value="A+">A+</option>
-                            <option value="A-">A-</option>
-                            <option value="B+">B+</option>
-                            <option value="B-">B-</option>
-                            <option value="O+">O+</option>
-                            <option value="O-">O-</option>
-                            <option value="AB+">AB+</option>
-                            <option value="AB-">AB-</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-stone-300 font-bold mb-1.5 uppercase">Pakistani Passport No (Optional)</label>
-                          <input
-                            type="text"
-                            value={regForm.passportNo}
-                            onChange={(e) => setRegForm({...regForm, passportNo: e.target.value})}
-                            placeholder="e.g. XY123456"
-                            className="w-full bg-slate-950 border border-slate-800 focus:border-[#D4AF37] rounded px-2.5 py-2 outline-none text-white font-mono focus:ring-1 focus:ring-[#D4AF37]"
-                          />
-                        </div>
-                      </div>
-
-                      {/* MEMBERSHIP PROFILE PHOTO SELECTOR */}
-                      <div>
-                        <label className="block text-stone-300 font-bold mb-1.5 uppercase">Membership Face Profile Photo <span className="text-stone-500 font-normal">(Highly Recommended)</span></label>
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 rounded-full overflow-hidden border border-slate-800 bg-slate-950 flex items-center justify-center shrink-0">
-                            {regForm.photoUrl ? (
-                              <img src={regForm.photoUrl} alt="Preview" className="w-full h-full object-cover" />
-                            ) : (
-                              <UserPlus className="w-5 h-5 text-stone-600" />
-                            )}
-                          </div>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                const reader = new FileReader();
-                                reader.onloadend = () => {
-                                  setRegForm({...regForm, photoUrl: reader.result as string});
-                                };
-                                reader.readAsDataURL(file);
-                              }
-                            }}
-                            className="w-full bg-slate-950 border border-slate-800 focus:border-[#D4AF37] rounded px-2.5 py-1.5 outline-none text-white text-[11px] font-mono focus:ring-1 focus:ring-[#D4AF37] file:mr-4 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[10px] file:font-semibold file:bg-stone-800 file:text-stone-300 hover:file:bg-stone-750 file:cursor-pointer"
-                          />
-                        </div>
-                      </div>
-
-                      {/* OMR 5 REGISTRATION FEE ADVISORY */}
-                      <div className="bg-emerald-950/40 p-3.5 rounded-lg border border-emerald-900/45 text-stone-300 space-y-1.5">
-                        <div className="flex items-center gap-2">
-                          <Coins className="w-4 h-4 text-[#D4AF37]" />
-                          <h4 className="font-extrabold text-white text-[11px] uppercase tracking-wider">Oman Cabinet hand-off policy</h4>
-                        </div>
-                        <p className="text-[10.5px] text-stone-400 leading-relaxed">
-                          An official lifetime registration fee of <strong className="text-[#D4AF37] font-black">5 Omani Riyal (5 OMR)</strong> applies to all registrants for logistics coverage. Status remains <span className="text-amber-400 font-bold uppercase font-mono">Pending</span> until payment is verified by the registrar.
+                        <h4 className="text-lg font-bold text-white font-display">Registration Slip Received!</h4>
+                        <p className="text-xs text-stone-450 leading-relaxed max-w-sm mx-auto">
+                          Excellent! Your expatriate file has been securely submitted into the Sultanate POC queue. Status will reflect as <strong className="text-yellow-400">Pending</strong> until the regional central coordinator verifies registration.
                         </p>
+                        <div className="bg-emerald-950/20 p-4 rounded-lg border border-emerald-905 text-[11px] text-stone-300 max-w-sm mx-auto space-y-2">
+                          <p className="font-bold text-white uppercase text-[10px] tracking-wider text-center border-b border-white/5 pb-1">Next Required Steps</p>
+                          <p className="text-left font-sans">1. Hand-off the standard OMR 5 registration Logistics Fee in Ruwi/Seeb or Suhar/Salalah coordination desks.</p>
+                          <p className="text-left font-sans">2. Switch to the <strong className="text-[#D4AF37]">"Status & Downloads"</strong> tab above and search your Civil ID to view your approved vertical badge & horizontal printable certificate!</p>
+                        </div>
+                        <div className="flex gap-3 justify-center pt-2">
+                          <button 
+                            onClick={() => {
+                              if (newRegMemberRef) {
+                                setSearchQuery(newRegMemberRef.omanId);
+                                setSearchResult(newRegMemberRef);
+                                setSearchTried(true);
+                              }
+                              setJoinSubTab('lookup');
+                              setRegisteredSuccess(false);
+                            }}
+                            className="bg-[#D4AF37] hover:bg-[#bba335] text-slate-950 font-extrabold text-xs uppercase px-5 py-2.5 rounded transition-all flex items-center gap-1.5"
+                          >
+                            <FileText className="w-4 h-4" /> Go to Status
+                          </button>
+                          <button 
+                            onClick={() => setRegisteredSuccess(false)}
+                            className="border border-stone-700 hover:bg-stone-800 text-stone-300 font-extrabold text-xs uppercase px-5 py-2.5 rounded transition-all"
+                          >
+                            Submit Another
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <form onSubmit={handleRegisterSubmit} className="space-y-4 text-xs">
+                        <h3 className="text-xs font-bold text-[#D4AF37] uppercase tracking-widest border-b border-slate-800/80 pb-2.5">Enrollment Registration Slip</h3>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-stone-300 font-bold mb-1.5 uppercase">Full Name <span className="text-[#D4AF37]">*</span></label>
+                            <input
+                              type="text"
+                              value={regForm.name}
+                              onChange={(e) => setRegForm({...regForm, name: e.target.value})}
+                              placeholder="e.g. Basit Ali Swati"
+                              className="w-full bg-slate-950 border border-slate-800 focus:border-[#D4AF37] rounded px-2.5 py-2 outline-none text-white font-semibold focus:ring-1 focus:ring-[#D4AF37]"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-stone-300 font-bold mb-1.5 uppercase">Father's Name <span className="text-[#D4AF37]">*</span></label>
+                            <input
+                              type="text"
+                              value={regForm.fatherName}
+                              onChange={(e) => setRegForm({...regForm, fatherName: e.target.value})}
+                              placeholder="e.g. Sher Zaman Khattak"
+                              className="w-full bg-slate-950 border border-slate-800 focus:border-[#D4AF37] rounded px-2.5 py-2 outline-none text-white font-semibold focus:ring-1 focus:ring-[#D4AF37]"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-stone-300 font-bold mb-1.5 uppercase">Oman Contact Phone <span className="text-[#D4AF37]">*</span></label>
+                            <input
+                              type="text"
+                              value={regForm.phone}
+                              onChange={(e) => setRegForm({...regForm, phone: e.target.value})}
+                              placeholder="e.g. +968 9111 2233"
+                              className="w-full bg-slate-950 border border-slate-800 focus:border-[#D4AF37] rounded px-2.5 py-2 outline-none text-white font-mono focus:ring-1 focus:ring-[#D4AF37]"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-stone-300 font-bold mb-1.5 uppercase">Oman Civil ID Number <span className="text-[#D4AF37]">*</span></label>
+                            <input
+                              type="text"
+                              value={regForm.omanId}
+                              onChange={(e) => setRegForm({...regForm, omanId: e.target.value})}
+                              placeholder="e.g. 10928374"
+                              className="w-full bg-slate-950 border border-slate-800 focus:border-[#D4AF37] rounded px-2.5 py-2 outline-none text-white font-mono focus:ring-1 focus:ring-[#D4AF37]"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-stone-300 font-bold mb-1.5 uppercase">Oman Sponsor residency region <span className="text-[#D4AF37]">*</span></label>
+                            <select
+                              value={regForm.regionOman}
+                              onChange={(e) => setRegForm({...regForm, regionOman: e.target.value})}
+                              className="w-full bg-slate-950 border border-slate-800 focus:border-[#D4AF37] rounded px-2.5 py-2 cursor-pointer outline-none text-white font-semibold focus:ring-1 focus:ring-[#D4AF37]"
+                            >
+                              <option value="Muscat">Muscat (Ruwi/Seeb)</option>
+                              <option value="Suhar">Suhar (Al Batinah)</option>
+                              <option value="Salalah">Salalah (Dhofar)</option>
+                              <option value="Nizwa">Nizwa (Al Dakhiliyah)</option>
+                              <option value="Ibri">Ibri (Al Dhahirah)</option>
+                              <option value="Duqm">Duqm (Wustah)</option>
+                              <option value="Sur">Sur (Ash Sharqiyah)</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-stone-300 font-bold mb-1.5 uppercase">Home District in Pakistan <span className="text-[#D4AF37]">*</span></label>
+                            <input
+                              type="text"
+                              value={regForm.regionPak}
+                              onChange={(e) => setRegForm({...regForm, regionPak: e.target.value})}
+                              placeholder="e.g. Swat Swabi or Khyber Agency"
+                              className="w-full bg-slate-950 border border-slate-800 focus:border-[#D4AF37] rounded px-2.5 py-2 outline-none text-white font-semibold focus:ring-1 focus:ring-[#D4AF37]"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-stone-300 font-bold mb-1.5 uppercase">Blood Group <span className="text-[#D4AF37]">*</span></label>
+                            <select
+                              value={regForm.bloodGroup}
+                              onChange={(e) => setRegForm({...regForm, bloodGroup: e.target.value})}
+                              className="w-full bg-slate-950 border border-slate-800 focus:border-[#D4AF37] rounded px-2.5 py-2 cursor-pointer outline-none text-white text-xs font-semibold focus:ring-1 focus:ring-[#D4AF37]"
+                            >
+                              <option value="A+">A+</option>
+                              <option value="A-">A-</option>
+                              <option value="B+">B+</option>
+                              <option value="B-">B-</option>
+                              <option value="O+">O+</option>
+                              <option value="O-">O-</option>
+                              <option value="AB+">AB+</option>
+                              <option value="AB-">AB-</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-stone-300 font-bold mb-1.5 uppercase">Pakistani Passport No (Optional)</label>
+                            <input
+                              type="text"
+                              value={regForm.passportNo}
+                              onChange={(e) => setRegForm({...regForm, passportNo: e.target.value})}
+                              placeholder="e.g. XY123456"
+                              className="w-full bg-slate-950 border border-slate-800 focus:border-[#D4AF37] rounded px-2.5 py-2 outline-none text-white font-mono focus:ring-1 focus:ring-[#D4AF37]"
+                            />
+                          </div>
+                        </div>
+
+                        {/* MEMBERSHIP PROFILE PHOTO SELECTOR */}
+                        <div>
+                          <label className="block text-stone-300 font-bold mb-1.5 uppercase">Membership Face Profile Photo <span className="text-stone-500 font-normal">(Highly Recommended)</span></label>
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-full overflow-hidden border border-slate-800 bg-slate-950 flex items-center justify-center shrink-0">
+                              {regForm.photoUrl ? (
+                                <img src={regForm.photoUrl} alt="Preview" className="w-full h-full object-cover" />
+                              ) : (
+                                <UserPlus className="w-5 h-5 text-stone-600" />
+                              )}
+                            </div>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onloadend = () => {
+                                    setRegForm({...regForm, photoUrl: reader.result as string});
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                              className="w-full bg-slate-950 border border-slate-800 focus:border-[#D4AF37] rounded px-2.5 py-1.5 outline-none text-white text-[11px] font-mono focus:ring-1 focus:ring-[#D4AF37] file:mr-4 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[10px] file:font-semibold file:bg-stone-800 file:text-stone-300 hover:file:bg-stone-750 file:cursor-pointer"
+                            />
+                          </div>
+                        </div>
+
+                        {/* OMR 5 REGISTRATION FEE ADVISORY */}
+                        <div className="bg-emerald-950/40 p-3.5 rounded-lg border border-emerald-900/45 text-stone-300 space-y-1.5">
+                          <div className="flex items-center gap-2">
+                            <Coins className="w-4 h-4 text-[#D4AF37]" />
+                            <h4 className="font-extrabold text-white text-[11px] uppercase tracking-wider">Oman Cabinet hand-off policy</h4>
+                          </div>
+                          <p className="text-[10.5px] text-stone-400 leading-relaxed">
+                            An official lifetime registration fee of <strong className="text-[#D4AF37] font-black">5 Omani Riyal (5 OMR)</strong> applies to all registrants for logistics coverage. Status remains <span className="text-amber-400 font-bold uppercase font-mono">Pending</span> until payment is verified by the registrar.
+                          </p>
+                        </div>
+
+                        <button
+                          type="submit"
+                          className="w-full bg-gradient-to-r from-[#006633] to-emerald-800 hover:brightness-110 text-white font-extrabold text-xs uppercase py-3.5 rounded-lg shadow-lg tracking-wider cursor-pointer transition-all"
+                        >
+                          Register for Membership Card
+                        </button>
+                      </form>
+                    )}
+                  </div>
+
+                  {/* Virtual Card Preview rendering column on Right (LOCKED FOR NEW APPLICANTS) */}
+                  <div className="lg:col-span-6 space-y-6">
+                    <div className="border-b border-stone-900 pb-2">
+                      <h3 className="text-md font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                        <Sparkles className="w-5 h-5 text-yellow-400" />
+                        Card Compiler Draft Preview
+                      </h3>
+                      <p className="text-[11px] text-stone-500 mt-0.5">As you type, details sync live on the vertical card below. Downloads are disabled until cabinet approval.</p>
+                    </div>
+
+                    {/* Render Card preview strictly marked as Draft (Locked) */}
+                    <MemberCard 
+                      isDraft={true}
+                      member={
+                        registeredSuccess && newRegMemberRef
+                          ? newRegMemberRef
+                          : {
+                              name: regForm.name || 'YOUR FULL NAME',
+                              fatherName: regForm.fatherName || 'FATHER NAME',
+                              phone: regForm.phone || '+968 XXXX XXXX',
+                              omanId: regForm.omanId || 'CIVIL ID NO',
+                              regionOman: regForm.regionOman,
+                              regionPak: regForm.regionPak || 'HOME DISTRICT',
+                              bloodGroup: regForm.bloodGroup,
+                              cardType: 'Standard',
+                              registrationNo: 'POC-M-DRAFT'
+                            }
+                      }
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: SECURE STATUS INQUIRY & PORTABLE DOWNLOADS */}
+              {joinSubTab === 'lookup' && (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-fadeIn">
+                  
+                  {/* Left Column search box */}
+                  <div className="lg:col-span-6 bg-gradient-to-b from-slate-900 to-slate-950 p-6 rounded-2xl border border-slate-800/80 shadow-2xl relative overflow-hidden space-y-5">
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-500 to-emerald-700"></div>
+                    <div className="space-y-1">
+                      <h3 className="text-md font-black text-white uppercase tracking-wider flex items-center gap-1.5 text-[#D4AF37]">
+                        <Sparkles className="w-4 h-4 text-amber-400 animate-pulse" /> Status & Downloads Panel
+                      </h3>
+                      <p className="text-[11px] text-stone-400 leading-relaxed">
+                        To download your official high-fidelity vertical card badge choose your theme and trigger download, or print your horizontal certification. Search using your Oman Civil ID or contact phone coordinate digits.
+                      </p>
+                    </div>
+
+                    <div className="space-y-4 pt-1">
+                      <div>
+                        <label className="block text-stone-300 font-bold mb-1.5 uppercase tracking-wide text-[9px]">
+                          Enter Oman Civil ID / Passport / Phone No
+                        </label>
+                        <input
+                          type="text"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          placeholder="e.g. 10928374 or +968 9111 2233"
+                          className="w-full bg-slate-950 border border-slate-850 hover:border-slate-850 focus:border-[#D4AF37] rounded px-3.5 py-3 outline-none text-white font-mono text-xs focus:ring-1 focus:ring-[#D4AF37]"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              // Trigger search immediately
+                              setSearchTried(true);
+                              const cleaned = searchQuery.trim().toLowerCase().replace(/\s+/g, '');
+                              if (!cleaned) {
+                                setSearchResult(null);
+                                return;
+                              }
+                              const matched = members.find(m => {
+                                const omId = (m.omanId || '').trim().toLowerCase();
+                                const ph = (m.phone || '').trim().toLowerCase().replace(/\s+/g, '');
+                                const pNo = (m.passportNo || '').trim().toLowerCase();
+                                return omId === cleaned || ph === cleaned || ph.includes(cleaned) || pNo === cleaned;
+                              });
+                              setSearchResult(matched || null);
+                            }
+                          }}
+                        />
                       </div>
 
                       <button
-                        type="submit"
-                        className="w-full bg-gradient-to-r from-[#006633] to-emerald-800 hover:brightness-110 text-white font-extrabold text-xs uppercase py-3.5 rounded-lg shadow-lg tracking-wider cursor-pointer transition-all"
+                        onClick={() => {
+                          setSearchTried(true);
+                          const cleaned = searchQuery.trim().toLowerCase().replace(/\s+/g, '');
+                          if (!cleaned) {
+                            setSearchResult(null);
+                            return;
+                          }
+                          const matched = members.find(m => {
+                            const omId = (m.omanId || '').trim().toLowerCase();
+                            const ph = (m.phone || '').trim().toLowerCase().replace(/\s+/g, '');
+                            const pNo = (m.passportNo || '').trim().toLowerCase();
+                            return omId === cleaned || ph === cleaned || ph.includes(cleaned) || pNo === cleaned;
+                          });
+                          setSearchResult(matched || null);
+                        }}
+                        className="w-full bg-gradient-to-r from-[#006633] to-emerald-800 hover:brightness-115 py-3 text-xs font-black uppercase text-white tracking-widest rounded-lg transition-all flex items-center justify-center gap-2 shadow-lg"
                       >
-                        Register for Membership Card
+                        Check Approval State
                       </button>
-                    </form>
-                  )}
-                </div>
+                    </div>
 
-                {/* Virtual Card Preview rendering column on Right */}
-                <div className="lg:col-span-6 space-y-6">
-                  <div className="border-b border-stone-900 pb-2">
-                    <h3 className="text-md font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                      <Sparkles className="w-5 h-5 text-yellow-400" />
-                      Dynamic Live Card Compiler
-                    </h3>
-                    <p className="text-[11px] text-stone-500 mt-0.5">As you type, your card details will auto-format below. Click download to download a PNG.</p>
+                    <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-900/60 text-[10.5px] text-stone-400 leading-relaxed font-sans mt-2">
+                      <strong className="text-white">Note:</strong> Default database features a demo list of verified approved members for test queries. You can try searching <code className="bg-stone-900 text-yellow-400 font-mono px-1.5 py-0.5 rounded text-[10.5px]">10125433</code> (Sher Zaman Swati) or <code className="bg-stone-900 text-yellow-400 font-mono px-1.5 py-0.5 rounded text-[10.5px]">22334455</code> (Haji Ameer Khan) to see how approved credential download triggers work!
+                    </div>
                   </div>
 
-                  {/* Render Card preview */}
-                  <MemberCard 
-                    member={
-                      registeredSuccess && newRegMemberRef
-                        ? newRegMemberRef
-                        : {
-                            name: regForm.name,
-                            fatherName: regForm.fatherName,
-                            phone: regForm.phone,
-                            omanId: regForm.omanId,
-                            regionOman: regForm.regionOman,
-                            regionPak: regForm.regionPak,
-                            bloodGroup: regForm.bloodGroup,
-                            cardType: 'Standard',
-                            registrationNo: 'POC-M-DRAFT'
-                          }
-                    }
-                  />
-                </div>
+                  {/* Right Column showing result elements */}
+                  <div className="lg:col-span-6 space-y-6 flex flex-col items-center justify-center">
+                    
+                    {!searchTried && (
+                      <div className="bg-stone-900/20 p-8 rounded-2xl border border-dashed border-stone-850 text-center space-y-3 w-full py-16">
+                        <FileText className="w-12 h-12 text-stone-800 mx-auto" />
+                        <h4 className="text-xs font-black text-stone-400 uppercase tracking-widest">Awaiting Verification Search</h4>
+                        <p className="text-xs text-stone-500 max-w-sm mx-auto leading-relaxed">
+                          Enter your credentials in the inquiries field on the left. Certified active members unlock full vertical high gloss badges and horizontal printable diplomas immediately.
+                        </p>
+                      </div>
+                    )}
 
-              </div>
+                    {searchTried && !searchResult && (
+                      <div className="bg-stone-900/40 p-8 rounded-2xl border border-stone-850/80 text-center space-y-4 w-full py-12">
+                        <HelpCircle className="w-11 h-11 text-stone-600 mx-auto animate-bounce" />
+                        <h4 className="text-sm font-black text-stone-200 uppercase tracking-widest">No Active Match Located</h4>
+                        <p className="text-xs text-stone-400 leading-relaxed max-w-xs mx-auto">
+                          We searched Muscat and Suhar cabinet rosters but couldn't locate any profile corresponding to "<strong>{searchQuery}</strong>".
+                        </p>
+                        <p className="text-[10px] text-stone-500 leading-normal max-w-xs mx-auto">
+                          If you registered recently, please consult your regional central assembly desk or re-enroll under the <strong>📝 Enroll Register</strong> tab.
+                        </p>
+                      </div>
+                    )}
+
+                    {searchTried && searchResult && (
+                      <div className="w-full">
+                        {searchResult.status === 'Approved' ? (
+                          <div className="space-y-6">
+                            {/* Congratulations header */}
+                            <div className="bg-emerald-950/40 border border-emerald-900/50 rounded-xl p-4 text-center space-y-1">
+                              <span className="bg-emerald-800/80 text-white font-extrabold text-[9px] px-2 py-0.5 rounded-full uppercase tracking-widest font-mono">
+                                verified approved profile
+                              </span>
+                              <h4 className="text-sm font-black text-emerald-400 mt-1.5 uppercase tracking-tight">
+                                🎉 CONGRATULATIONS, {searchResult.name}!
+                              </h4>
+                              <p className="text-[10.5px] text-stone-300">
+                                Your standard welfare active registration has been authorized by the central cabinet. Your Official Badge and Horizontal Certificate are now unlocked for immediate download.
+                              </p>
+                            </div>
+
+                            {/* Render actual UNLOCKED MemberCard */}
+                            <MemberCard 
+                              member={searchResult}
+                              isDraft={false}
+                            />
+
+                            {/* Horizontal Certificate Unlocked Trigger Box */}
+                            <div className="bg-gradient-to-r from-slate-900 to-slate-950 p-4 rounded-2xl border border-[#D4AF37]/30 flex items-center justify-between gap-4">
+                              <div className="space-y-1">
+                                <span className="text-[9px] bg-amber-950 border border-amber-900 text-[#D4AF37] px-2 py-0.5 rounded font-mono font-bold uppercase tracking-wider">
+                                  Diploma Unlocked
+                                </span>
+                                <h4 className="text-xs font-black text-white uppercase mt-1">Horizontal Membership Certificate</h4>
+                                <p className="text-[10px] text-stone-400 font-sans max-w-[200px] sm:max-w-none">
+                                  Suitable for printing or framing, this high-fidelity horizontal layout contains certified serial id POC coordinates.
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => setSelectedCertMember(searchResult)}
+                                className="bg-[#D4AF37] hover:bg-[#b08c23] text-slate-950 py-3 px-4 rounded-lg font-extrabold text-xs uppercase tracking-wider shrink-0 transition-transform active:scale-95 flex items-center gap-1 shadow-lg font-display"
+                              >
+                                <Award className="w-4 h-4 text-slate-950" /> Get Certificate
+                              </button>
+                            </div>
+                          </div>
+                        ) : searchResult.status === 'Pending' ? (
+                          <div className="bg-stone-900/50 p-6 rounded-2xl border border-stone-850 space-y-4 text-center w-full">
+                            <div className="w-12 h-12 bg-yellow-950/60 border border-yellow-900 flex items-center justify-center rounded-full mx-auto text-yellow-400">
+                              <Coins className="w-6 h-6 animate-pulse" />
+                            </div>
+                            <h4 className="text-sm font-black text-yellow-500 uppercase tracking-widest">🟡 REGISTRATION APPLIED • PENDING</h4>
+                            <p className="text-xs text-stone-300 leading-relaxed max-w-sm mx-auto">
+                              Your profile folder representing <strong>{searchResult.name}</strong> is securely entered in the database queue, but requires physical fee verification.
+                            </p>
+                            <div className="bg-slate-950 p-3.5 rounded-lg border border-slate-900 text-left text-[11px] text-stone-300 font-mono space-y-1 max-w-sm mx-auto">
+                              <p className="text-white font-bold border-b border-white/5 pb-1 text-center uppercase text-[10px]">Registry Details</p>
+                              <p>• EXPATRIATE ID: {searchResult.omanId}</p>
+                              <p>• STATUS: AWAITING CENTRAL COMMISSION AUDIT</p>
+                              <p>• LIFE FEE STATUS: <span className="text-yellow-400 font-bold">OMR 5 UNPAID</span></p>
+                            </div>
+                            <p className="text-[10.5px] text-stone-450 leading-relaxed max-w-sm mx-auto">
+                              ⚠️ Once your regional coordinator confirms payment of the <strong>5 OMR logistics fee</strong>, the status updates to approved instantly, enabling both high-gloss vertical badges and Horizontal printable diplomas.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="bg-stone-900/50 p-6 rounded-2xl border border-stone-850 space-y-4 text-center w-full">
+                            <div className="w-12 h-12 bg-red-950/60 border border-red-900 flex items-center justify-center rounded-full mx-auto text-red-500">
+                              <ShieldAlert className="w-6 h-6 shrink-0" />
+                            </div>
+                            <h4 className="text-sm font-black text-rose-500 uppercase tracking-widest">🔴 REJECTED OR DISMISSED</h4>
+                            <p className="text-xs text-stone-400 leading-relaxed max-w-xs mx-auto">
+                              The application folder representing <strong>{searchResult.name}</strong> was dismissed by regional administrators.
+                            </p>
+                            <p className="text-[10px] text-stone-550 leading-normal max-w-xs mx-auto">
+                              Please consult with the Central Central Cabinet Coordinators in Muscat or re-enroll.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1309,6 +1545,13 @@ export default function App() {
 
       {/* Structured Solid Footer */}
       <Footer />
+
+      {selectedCertMember && (
+        <MembershipCertificate
+          member={selectedCertMember}
+          onClose={() => setSelectedCertMember(null)}
+        />
+      )}
 
     </div>
   );
